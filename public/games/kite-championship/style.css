@@ -30,9 +30,15 @@ h1 i { display: inline-block; color: #ffe68c; font-size: 15px; vertical-align: t
 .rank-copy { display: grid; min-width: 0; }
 .rank-name { color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 9px; font-weight: 900; }
 .rank-score { color: #dff5ff; font-size: 8px; font-weight: 800; white-space: nowrap; }
-.connection-status { top: 196px; left: 16px; max-width: 76%; padding: 5px 9px; border: 1px solid #f8ffff88; border-radius: 20px; color: #f3fbff; background: #0c314894; font-size: 9px; font-weight: 800; text-shadow: 0 1px 3px #24354a; }
-.connection-status.live { color: #c7ffe0; border-color: #95f4bc; background: #123c33b8; }
-.announcer { top: 238px; left: 50%; width: max-content; max-width: 88%; transform: translateX(-50%) translateY(-8px); opacity: 0; text-align: center; padding: 8px 15px; color: #fff; background: #1d2446df; border: 1px solid #ffde92; border-radius: 25px; box-shadow: 0 5px 20px #1a234566; font-size: 11px; font-weight: 900; transition: transform 320ms ease, opacity 320ms ease; }
+.connection-status { top: 196px; left: 16px; display: grid; gap: 2px; width: max-content; max-width: calc(100% - 32px); padding: 7px 10px; border: 1px solid #d8f5ffb8; border-radius: 10px; color: #f3fbff; background: #10334ddc; box-shadow: 0 4px 14px #12354b60; font-size: 10px; line-height: 1.25; text-shadow: 0 1px 3px #24354a; }
+.connection-status strong { font-size: 10px; font-weight: 900; letter-spacing: .3px; }
+.connection-status span { font-size: 9px; font-weight: 700; }
+.connection-status span:empty { display: none; }
+.connection-status.live { color: #c7ffe0; border-color: #95f4bc; background: #123c33d9; }
+.connection-status.retrying { border-color: #ffe58d; background: #4d3617e8; }
+.connection-status.error { border-color: #ff9ca5; background: #612638ec; }
+.connection-status.local { border-color: #b8cbff; background: #253454e8; }
+.announcer { top: 270px; left: 50%; width: max-content; max-width: 88%; transform: translateX(-50%) translateY(-8px); opacity: 0; text-align: center; padding: 8px 15px; color: #fff; background: #1d2446df; border: 1px solid #ffde92; border-radius: 25px; box-shadow: 0 5px 20px #1a234566; font-size: 11px; font-weight: 900; transition: transform 320ms ease, opacity 320ms ease; }
 .announcer.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 .announcer.cut { background: #b12e45eb; border-color: #ffd060; font-size: 14px; }
 .winner { top: 350px; left: 50%; width: 86%; transform: translateX(-50%); display: grid; gap: 4px; text-align: center; padding: 15px 10px; background: linear-gradient(130deg, #242647ec, #702e53eb); border: 2px solid #ffe08d; border-radius: 17px; box-shadow: 0 10px 35px #0c2338bb, 0 0 35px #ffe48866; animation: winIn 550ms cubic-bezier(.16,1.7,.4,1) both; }

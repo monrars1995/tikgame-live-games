@@ -31,7 +31,10 @@
         <div id="ranking" class="ranking"></div>
       </section>
 
-      <div id="connectionStatus" class="connection-status" role="status">Aguardando a live</div>
+      <div id="connectionStatus" class="connection-status pending" role="status" aria-live="polite">
+        <strong id="connectionTitle">Aguardando a live</strong>
+        <span id="connectionDetail"></span>
+      </div>
       <div id="announcer" class="announcer" aria-live="polite"></div>
       <div id="winner" class="winner" hidden><small>CAMPEÃO DA RODADA</small><strong id="winnerName"></strong><span>🏆 +1 TROFÉU</span></div>
 

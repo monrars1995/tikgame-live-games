@@ -1,6 +1,6 @@
 {
   "name": "tikgame-live-games",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Fliperama TikTok LIVE com cinco mini-games interativos de chat, curtidas e presentes",
   "type": "module",
   "main": "src/server.js",

@@ -178,3 +178,77 @@ test("retry restarts a socket that stopped reconnecting automatically", () => {
 	socket.deliver("connect");
 	assert.deepEqual(socket.sent.map(({ value }) => value), ["alpha", "alpha"]);
 });
+
+test("structured TikTok failure and retry preserve the specific cause until recovery", () => {
+	const { bridge, sockets } = setup();
+	const errors = [];
+	const retries = [];
+	bridge.on("error", (value) => errors.push(value));
+	bridge.on("reconnecting", (value) => retries.push(value));
+	bridge.connect("@streamer");
+	const socket = sockets[0];
+	socket.deliver("connect");
+	const failure = {
+		code: "LIVE_NOT_FOUND", message: "Live não encontrada", retryable: true,
+		username: "streamer", timestamp: 42,
+	};
+	socket.deliver("connection-error", failure);
+	assert.equal(errors[0].source, "tiktok");
+	assert.equal(errors[0].code, "LIVE_NOT_FOUND");
+	assert.equal(errors[0].username, "streamer");
+	assert.equal(errors[0].timestamp, 42);
+
+	socket.deliver("tiktok_reconnecting", { username: "streamer", attempt: 2, maxAttempts: 5, delayMs: 4000 });
+	assert.equal(retries[0].source, "tiktok");
+	assert.equal(retries[0].attempt, 2);
+	assert.equal(retries[0].maxAttempts, 5);
+	assert.equal(retries[0].lastError.code, "LIVE_NOT_FOUND");
+
+	socket.deliver("tiktok_connected", { roomId: "recovered" });
+	assert.equal(bridge.lastError, null);
+	socket.deliver("tiktok_reconnecting", { username: "streamer", attempt: 1, maxAttempts: 5, delayMs: 2000 });
+	assert.equal(retries[1].lastError, null);
+});
+
+test("final exhausted state is delivered as an error and not converted into a retry", () => {
+	const { bridge, sockets } = setup();
+	const errors = [];
+	const retries = [];
+	bridge.on("error", (value) => errors.push(value));
+	bridge.on("reconnecting", (value) => retries.push(value));
+	bridge.connect("streamer");
+	const socket = sockets[0];
+	socket.deliver("connect");
+	socket.deliver("tiktok_error", {
+		code: "RECONNECT_EXHAUSTED", message: "Falha após 5 tentativas", retryable: false,
+		username: "streamer", exhausted: true, timestamp: 84,
+	});
+	assert.equal(errors.length, 1);
+	assert.equal(errors[0].source, "tiktok");
+	assert.equal(errors[0].exhausted, true);
+	assert.equal(errors[0].retryable, false);
+	assert.equal(retries.length, 0);
+});
+
+test("local socket failure stays separate from TikTok failure and ignores stale room errors", () => {
+	const { bridge, sockets } = setup();
+	const errors = [];
+	const retries = [];
+	bridge.on("error", (value) => errors.push(value));
+	bridge.on("reconnecting", (value) => retries.push(value));
+	bridge.connect("alpha");
+	const socket = sockets[0];
+	socket.deliver("connect");
+	bridge.connect("beta");
+	socket.deliver("connection-error", { username: "alpha", code: "LIVE_OFFLINE", message: "old room" });
+	socket.deliver("tiktok_reconnecting", { username: "alpha", attempt: 1 });
+	assert.equal(errors.length, 0);
+	assert.equal(retries.length, 0);
+	socket.deliver("connect_error", new Error("transport close"));
+	assert.equal(errors[0].source, "local");
+	assert.equal(errors[0].code, "LOCAL_SOCKET_ERROR");
+	assert.equal(errors[0].message, "transport close");
+	socket.deliver("disconnect");
+	assert.equal(retries[0].source, "local");
+	assert.equal(retries[0].lastError, null);
+});

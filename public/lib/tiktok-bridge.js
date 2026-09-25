@@ -12,6 +12,7 @@
 			this.liveReady = false;
 			this.awaitingRoomAck = false;
 			this.switchPending = false;
+			this.lastError = null;
 			this.eventHandlers = {
 				chat: [], gift: [], like: [], share: [],
 				connected: [], disconnected: [], reconnecting: [], error: [],
@@ -30,13 +31,14 @@
 				? username.trim().replace(/^@/, "").toLowerCase()
 				: "";
 			if (!/^[a-z0-9_.]+$/.test(name)) {
-				this._dispatch("error", { message: "Informe um @ do TikTok válido." });
+				this._reportError({ code: "INVALID_USERNAME", message: "Informe um @ do TikTok válido.", retryable: false }, "input");
 				return;
 			}
 
 			const sameSocket = this.socket && this.serverUrl === serverUrl;
 			const changedRoom = this.username !== null && this.username !== name;
 			this.username = name;
+			this.lastError = null;
 			if (changedRoom) {
 				this.liveReady = false;
 				this.switchPending = true;
@@ -68,11 +70,11 @@
 			socket.on("connect", current(() => this._joinRoom()));
 			socket.on("disconnect", current(() => {
 				this.awaitingRoomAck = false;
-				this._setDisconnected();
-				this._dispatch("reconnecting", { attempt: 0, delayMs: 0 });
+				this._setDisconnected({ source: "local", username: this.username });
+				this._reportReconnecting({ attempt: 0, delayMs: 0 }, "local");
 			}));
 			socket.on("connect_error", current((error) => {
-				this._dispatch("error", { message: error?.message || "Falha na conexão local." });
+				this._reportError({ code: "LOCAL_SOCKET_ERROR", message: error?.message || "Falha na conexão local.", retryable: true }, "local");
 			}));
 			socket.on("room-joined", current((data) => {
 				if (data?.room !== this.username) return;
@@ -94,20 +96,24 @@
 			socket.on("tiktok_gift", relay("gift"));
 			socket.on("tiktok_like", relay("like"));
 			socket.on("tiktok_share", relay("share"));
-			socket.on("tiktok_disconnected", current(() => this._setDisconnected()));
+			socket.on("tiktok_disconnected", current(() => this._setDisconnected({ source: "tiktok", username: this.username })));
 			socket.on("tiktok_reconnecting", current((data) => {
+				if (data?.username && data.username !== this.username) return;
 				this.liveReady = false;
 				this.awaitingRoomAck = false;
-				this._dispatch("reconnecting", data);
+				this._reportReconnecting(data, "tiktok");
 			}));
-			socket.on("tiktok_error", current((data) => this._dispatch("error", data)));
+			socket.on("tiktok_error", current((data) => {
+				if (!data?.username || data.username === this.username) this._reportError(data, "tiktok");
+			}));
 			socket.on("connection-error", current((data) => {
+				if (data?.username && data.username !== this.username) return;
 				this.awaitingRoomAck = false;
 				this.switchPending = false;
 				this.liveReady = false;
-				this._dispatch("error", data);
+				this._reportError(data, "tiktok");
 			}));
-			socket.on("error", current((data) => this._dispatch("error", data)));
+			socket.on("error", current((data) => this._reportError(data, "local")));
 		}
 
 		_joinRoom() {
@@ -120,13 +126,27 @@
 		_setConnected(data) {
 			if (this.liveReady) return;
 			this.liveReady = true;
+			this.lastError = null;
 			this._dispatch("connected", data);
 		}
 
-		_setDisconnected() {
+		_setDisconnected(data) {
 			if (!this.liveReady) return;
 			this.liveReady = false;
-			this._dispatch("disconnected");
+			this._dispatch("disconnected", data);
+		}
+
+		_reportError(data, source) {
+			const detail = data && typeof data === "object" ? data : { message: String(data || "Falha na conexão.") };
+			const error = { ...detail, message: detail.message || "Falha na conexão.", source, username: detail.username || this.username };
+			this.lastError = error;
+			this._dispatch("error", error);
+		}
+
+		_reportReconnecting(data, source) {
+			const detail = data && typeof data === "object" ? data : {};
+			const lastError = source === "tiktok" ? detail.lastError || (this.lastError?.source === "tiktok" ? this.lastError : null) : null;
+			this._dispatch("reconnecting", { ...detail, source, username: detail.username || this.username, lastError });
 		}
 
 		/** Event names: chat, gift, like, share, connected, disconnected, reconnecting, error. */

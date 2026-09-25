@@ -1,6 +1,6 @@
 # TikGame Live Games · Fliperama para TikTok LIVE
 
-Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.2.0** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
+Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.2.1** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
 
 | Mini-game | Entrada e ação principal | Duração |
 | --- | --- | --- |
@@ -38,6 +38,10 @@ Cada jogo também tem uma **demonstração** no painel. O link `?demo=1` cria ev
 ## Regras e conexão
 
 O backend compartilha uma conexão por @ entre páginas na mesma sala Socket.io, tenta reconectar em falhas e libera a conexão quando a última página sai. O contrato `tiktok_chat`, `tiktok_like`, `tiktok_gift` e `tiktok_share` foi preservado. Os jogos novos compartilham um utilitário que conta apenas as **unidades adicionais** de combos cumulativos de presentes e deduplica mensagens repetidas. Os rankings são limitados por rodada; efeitos transitórios são removidos do DOM.
+
+Se o Céu de Corte permanecer em “Reconectando”, confira `http://127.0.0.1:3100/api/health`: `rooms` mostra quantas páginas aguardam a sala e `roomDiagnostics` distingue `connecting`, `connected`, `reconnecting` e `failed`, com o motivo e a tentativa atual. A arena também mostra o @, a causa e o limite de tentativas. `LIVE_OFFLINE` indica que o perfil ou a live não estão acessíveis; `CONNECTOR_ACCESS` indica recusa de acesso; `RATE_LIMITED` e `NETWORK_ERROR` podem se recuperar após nova tentativa. Confirme que o link da fonte usa o perfil que **está transmitindo**, por exemplo `/games/kite-championship/index.html?id=seu_perfil`, e recarregue a fonte após corrigir o problema.
+
+A consulta opcional de metadados estendidos de presentes fica desativada: ela pode falhar antes de a conexão com a live abrir. Eventos de presentes continuam sendo recebidos, mas a pontuação depende dos campos de valor disponibilizados pelo conector. Use `/debug.html` para conferir o valor real de uma Rosa e de presentes maiores antes de homologar regras de 50+ moedas.
 
 Na Corrida do Povo, nomes de cavalo e números 1–5 escolhem a raia; outros comentários distribuem o jogador automaticamente. A escolha fica fixa durante a corrida. Curtidas valem 0,2 por tap, até 100 por evento; o primeiro comentário inicia a contagem. A fórmula de impulso por presente é `min(140, round(8 × valor^0,55))` por unidade, com chegada em 300 pontos. Veja [config.js](public/games/horse-racing/config.js).
 

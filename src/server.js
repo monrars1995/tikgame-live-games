@@ -16,6 +16,7 @@ import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
 import tiktokService from "./services/TikTokService.js";
+import { classifyConnectionError } from "./lib/tiktokConnectionError.js";
 
 // ES Module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -126,13 +127,11 @@ export function registerSocketHandlers(socket, roomIo = io, service = tiktokServ
           message: `Joined room: ${username}`,
         });
       } else {
-        socket.emit("connection-error", {
-          message: `Cannot connect to ${username}'s live. Make sure they are currently streaming!`,
-        });
+        socket.emit("connection-error", service.getLastError?.(username) || classifyConnectionError(null, username));
       }
     } catch (error) {
       if (socket.tiktokUsername === username && membershipVersion === version) {
-        socket.emit("connection-error", { message: error.message });
+        socket.emit("connection-error", classifyConnectionError(error, username));
       }
     } finally {
       if (pendingJoin === join) pendingJoin = null;

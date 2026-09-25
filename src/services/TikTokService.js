@@ -6,7 +6,8 @@ import {
 	normalizeLike,
 	normalizeShare,
 } from "../lib/tiktokEventNormalizer.js";
-import { getDelay, shouldRetry, sleep } from "../lib/tiktokReconnectPolicy.js";
+import { getDelay, shouldRetry, sleep, reconnectDefaults } from "../lib/tiktokReconnectPolicy.js";
+import { classifyConnectionError, connectionInterrupted } from "../lib/tiktokConnectionError.js";
 
 export class TikTokService {
 	constructor({
@@ -25,6 +26,8 @@ export class TikTokService {
 		this.connectingRecords = new Map();
 		this.roomClients = new Map();
 		this.reconnectState = new Map();
+		this.lastErrors = new Map();
+		this.maxReconnectAttempts = reconnectDefaults.maxRetries;
 		this.cleanupInterval = setInterval(() => this.checkInactiveConnections(), cleanupIntervalMs);
 		this.cleanupInterval.unref?.();
 	}
@@ -47,7 +50,7 @@ export class TikTokService {
 		} finally {
 			if (this.connecting.get(username) === attempt) this.connecting.delete(username);
 		}
-		if (!connected && !retry && this.getClientCount(username) > 0) {
+		if (!connected && !retry && this.getClientCount(username) > 0 && this.getLastError(username)?.retryable !== false) {
 			this._scheduleReconnect(username, io);
 		}
 		return connected;
@@ -58,7 +61,9 @@ export class TikTokService {
 		try {
 			const connection = this.connectionFactory(username, {
 				processInitialData: true,
-				enableExtendedGiftInfo: true,
+				// Gift events still arrive without this optional pre-connect HTTP request.
+				// That request may fail with 403 and otherwise block the whole live.
+				enableExtendedGiftInfo: false,
 			});
 			record = {
 				connection, io, closed: false, ready: false,
@@ -102,28 +107,35 @@ export class TikTokService {
 			connection.on("disconnected", () => {
 				if (record.closed) return;
 				record.closed = true;
+				if (this.getClientCount(username) > 0) this.lastErrors.set(username, connectionInterrupted(username));
 				if (this.connections.get(username) !== record) return;
 				this.connections.delete(username);
 				io.to(username).emit("tiktok_disconnected", { timestamp: Date.now() });
 				if (this.getClientCount(username) > 0) this._scheduleReconnect(username, io);
 			});
 			connection.on("error", (error) => {
-				if (record.closed) return;
-				io.to(username).emit("tiktok_error", {
-					message: error?.message || String(error),
-					timestamp: Date.now(),
-				});
+				if (record.closed || !record.ready) return;
+				this._emitError(username, io, classifyConnectionError(error, username));
 			});
 
 			const state = await connection.connect();
-			if (record.closed) return false;
+			if (record.closed) {
+				if (this.getClientCount(username) > 0) {
+					this._emitError(username, io, this.getLastError(username) || connectionInterrupted(username));
+				}
+				return false;
+			}
 			record.ready = true;
 			record.roomId = record.roomId ?? state?.roomId ?? connection.state?.roomId;
 			this.connections.set(username, record);
+			this.lastErrors.delete(username);
 			emitConnected();
 			return true;
 		} catch (error) {
-			console.error(`[TikTokService] Cannot connect to ${username}:`, error?.message);
+			if (record?.closed && this.getClientCount(username) === 0) return false;
+			const diagnostic = classifyConnectionError(error, username);
+			this._emitError(username, io, diagnostic);
+			console.error(`[TikTokService] Cannot connect to ${username}: ${diagnostic.code}`);
 			if (record) {
 				record.closed = true;
 				this._closeConnection(record.connection);
@@ -134,6 +146,16 @@ export class TikTokService {
 				this.connectingRecords.delete(username);
 			}
 		}
+	}
+
+	_emitError(username, io, diagnostic) {
+		if (this.getClientCount(username) > 0) this.lastErrors.set(username, diagnostic);
+		else this.lastErrors.delete(username);
+		io.to(username).emit("tiktok_error", diagnostic);
+	}
+
+	getLastError(username) {
+		return this.lastErrors.get(username) || null;
 	}
 
 	_scheduleReconnect(username, io) {
@@ -148,19 +170,37 @@ export class TikTokService {
 	async _runReconnect(username, io, state) {
 		while (this.canRetry(state.attempt)) {
 			if (state.cancelled || this.getClientCount(username) === 0 || this.connections.has(username)) return;
-			const delayMs = this.delayForAttempt(state.attempt);
+			const lastError = this.getLastError(username);
+			if (lastError?.retryable === false) return;
+			const delayMs = Math.max(this.delayForAttempt(state.attempt), lastError?.retryAfterMs || 0);
+			state.nextRetryAt = Date.now() + delayMs;
 			io.to(username).emit("tiktok_reconnecting", {
-				attempt: state.attempt + 1, delayMs, timestamp: Date.now(),
+				attempt: state.attempt + 1,
+				maxAttempts: this.maxReconnectAttempts,
+				delayMs,
+				lastError,
+				username,
+				timestamp: Date.now(),
 			});
 			await this.wait(delayMs);
+			state.nextRetryAt = null;
 			if (state.cancelled || this.getClientCount(username) === 0 || this.connections.has(username)) return;
 			if (await this.connect(username, io, { retry: true })) return;
 			state.attempt++;
+			if (this.getLastError(username)?.retryable === false) return;
 		}
 		if (!state.cancelled && this.getClientCount(username) > 0) {
-			io.to(username).emit("tiktok_error", {
-				message: `Reconnect failed after ${state.attempt} attempts. Streamer may have ended the live.`,
+			const lastError = this.getLastError(username);
+			this._emitError(username, io, {
+				...lastError,
+				code: lastError?.code || "CONNECTION_FAILED",
+				message: `A conexão não foi recuperada após ${state.attempt} tentativas. ${lastError?.message || "Confira a live e tente novamente."}`,
+				retryable: false,
+				username,
 				timestamp: Date.now(),
+				exhausted: true,
+				attempt: state.attempt,
+				maxAttempts: this.maxReconnectAttempts,
 			});
 		}
 	}
@@ -181,6 +221,7 @@ export class TikTokService {
 
 	disconnect(username) {
 		this._cancelReconnect(username);
+		this.lastErrors.delete(username);
 		const record = this.connections.get(username) || this.connectingRecords.get(username);
 		if (!record) return;
 		const wasActive = this.connections.get(username) === record;
@@ -209,6 +250,7 @@ export class TikTokService {
 		if (count === 0) {
 			this.roomClients.delete(username);
 			this._cancelReconnect(username);
+			this.lastErrors.delete(username);
 			const record = this.connections.get(username);
 			if (record) record.noClientsSince = Date.now();
 		} else {
@@ -231,10 +273,26 @@ export class TikTokService {
 	}
 
 	getStats() {
+		const roomDiagnostics = {};
+		for (const username of this.roomClients.keys()) {
+			const retry = this.reconnectState.get(username);
+			const lastError = this.getLastError(username);
+			roomDiagnostics[username] = {
+				status: this.connections.has(username) ? "connected"
+					: retry ? "reconnecting"
+					: this.connecting.has(username) ? "connecting"
+					: lastError ? "failed" : "waiting",
+				lastError,
+				attempt: retry?.attempt ?? null,
+				maxAttempts: this.maxReconnectAttempts,
+				nextRetryAt: retry?.nextRetryAt ?? null,
+			};
+		}
 		return {
 			activeConnections: this.connections.size,
 			connections: Array.from(this.connections.keys()),
 			rooms: Object.fromEntries(this.roomClients),
+			roomDiagnostics,
 		};
 	}
 }

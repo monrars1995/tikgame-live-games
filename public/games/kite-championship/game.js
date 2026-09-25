@@ -14,6 +14,8 @@ const pilotCount = $("pilotCount");
 const ranking = $("ranking");
 const queueCount = $("queueCount");
 const connectionStatus = $("connectionStatus");
+const connectionTitle = $("connectionTitle");
+const connectionDetail = $("connectionDetail");
 const announcer = $("announcer");
 const winner = $("winner");
 const winnerName = $("winnerName");
@@ -22,15 +24,54 @@ let noticeUntil = 0;
 let lastHud = 0;
 let lastRankKey = "";
 let connected = false;
+const liveUsername = (new URLSearchParams(location.search).get("id") || new URLSearchParams(location.search).get("username") || "")
+  .trim().replace(/^@/, "").toLowerCase();
+let lastLiveError = null;
+let retryAttempt = 0;
+let maxAttempts = 5;
+let retryDelayMs = 0;
+let exhausted = false;
 
-function status(message, live = false) {
-  connectionStatus.textContent = message;
-  connectionStatus.classList.toggle("live", live);
+function status(title, detail = "", tone = "pending") {
+  connectionTitle.textContent = title;
+  connectionDetail.textContent = detail;
+  connectionStatus.className = `connection-status ${tone}`;
+}
+
+function cause(error) {
+  if (typeof error === "string") return error.trim().slice(0, 130);
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "");
+  if (/LOCAL_SOCKET|ECONNREFUSED/.test(code) || /ECONNREFUSED|websocket error/i.test(message)) {
+    return "Servidor local indisponível. Confira se o TikGame está aberto.";
+  }
+  if (/NOT_LIVE|LIVE_OFFLINE|LIVE_ENDED|ROOM_NOT_FOUND|LIVE_NOT_FOUND/.test(code)
+    || /not live|not found|currently streaming|cannot connect to .*live/i.test(message)) {
+    return "Live não encontrada. Confira o @ e se a transmissão está ativa e pública.";
+  }
+  if (/ACCESS_DENIED|FORBIDDEN|UNAUTHORIZED|AUTH_/.test(code) || /access denied|forbidden|unauthorized|status 403/i.test(message)) {
+    return "TikTok recusou o acesso a esta live.";
+  }
+  if (/RATE_LIMIT|TOO_MANY/.test(code) || /rate limit|too many requests|status 429/i.test(message)) {
+    return "TikTok limitou novas conexões temporariamente.";
+  }
+  if (/TIMEOUT|TIMED_OUT/.test(code) || /timed? ?out|ETIMEDOUT/i.test(message)) {
+    return "TikTok não respondeu a tempo.";
+  }
+  if (message && !/reconnect failed|tentativas esgotadas/i.test(message)) return message.trim().slice(0, 130);
+  return "Não foi possível acessar a transmissão.";
+}
+
+function showRetry() {
+  if (exhausted) return;
+  const progress = retryAttempt > 0 ? ` · ${retryAttempt}/${maxAttempts}` : "";
+  const wait = retryDelayMs > 0 ? ` Próxima tentativa em ${Math.ceil(retryDelayMs / 1000)} s.` : " Tentando novamente.";
+  status(`@${liveUsername} · RECONECTANDO${progress}`, `${cause(lastLiveError)}${wait}`, "retrying");
 }
 
 if (demo) {
   $("demoBadge").hidden = false;
-  status("Prévia interativa · eventos simulados");
+  status("DEMONSTRAÇÃO", "Prévia interativa com eventos simulados.");
   const names = ["Ana", "Biel", "Carla", "Davi", "Eva", "Fê", "Gui", "Iara"];
   for (let index = 0; index < names.length; index++) {
     engine.chat({ user: { uniqueId: `demo-${index}`, nickname: names[index] }, comment: "solta pipa" });
@@ -45,12 +86,55 @@ if (demo) {
     turn++;
   }, 1400);
 } else {
-  const username = new URLSearchParams(location.search).get("id") || new URLSearchParams(location.search).get("username");
-  status(username ? "Conectando à live…" : "Abra pelo painel para conectar à live");
-  window.TikTokBridge.on("connected", () => { connected = true; status("● LIVE CONECTADA", true); });
-  window.TikTokBridge.on("disconnected", () => { connected = false; status("Live desconectada · reconectando…"); });
-  window.TikTokBridge.on("reconnecting", () => { connected = false; status("Reconectando à live…"); });
-  window.TikTokBridge.on("error", (error) => { connected = false; status(error?.message || "Conexão indisponível"); });
+  status(liveUsername ? `CONECTANDO @${liveUsername}` : "LIVE SEM PERFIL",
+    liveUsername ? "Aguardando acesso à transmissão." : "Abra a arena pelo painel com o @ da live.");
+  window.TikTokBridge.on("connected", () => {
+    connected = true;
+    lastLiveError = null;
+    retryAttempt = 0;
+    retryDelayMs = 0;
+    exhausted = false;
+    status(`● LIVE @${liveUsername} CONECTADA`, "Interações ativadas.", "live");
+  });
+  window.TikTokBridge.on("disconnected", (data) => {
+    connected = false;
+    if (data?.source === "local") {
+      status("PONTE LOCAL INTERROMPIDA", "Reconectando ao servidor TikGame…", "local");
+    } else {
+      lastLiveError = { message: "Sinal da live interrompido." };
+      showRetry();
+    }
+  });
+  window.TikTokBridge.on("reconnecting", (data) => {
+    connected = false;
+    if (data?.source === "local") {
+      status("PONTE LOCAL · RECONECTANDO", "Confira se o servidor TikGame continua aberto.", "local");
+      return;
+    }
+    if (exhausted) return;
+    if (data?.lastError) lastLiveError = data.lastError;
+    retryAttempt = Number.isFinite(Number(data?.attempt)) ? Math.max(0, Math.floor(Number(data.attempt))) : retryAttempt;
+    maxAttempts = Number.isFinite(Number(data?.maxAttempts)) && Number(data.maxAttempts) > 0
+      ? Math.floor(Number(data.maxAttempts)) : maxAttempts;
+    retryDelayMs = Number.isFinite(Number(data?.delayMs)) ? Math.max(0, Number(data.delayMs)) : 0;
+    showRetry();
+  });
+  window.TikTokBridge.on("error", (error) => {
+    connected = false;
+    if (error?.source === "local") {
+      status("SERVIDOR TIKGAME INDISPONÍVEL", cause(error), "local");
+      return;
+    }
+    lastLiveError = error?.lastError || (error?.exhausted ? lastLiveError || error : error || lastLiveError);
+    if (error?.exhausted || error?.retryable === false) {
+      exhausted = true;
+      const progress = error?.exhausted ? ` APÓS ${retryAttempt || maxAttempts} TENTATIVAS` : "";
+      status(`LIVE @${liveUsername} INDISPONÍVEL${progress}`,
+        `${cause(lastLiveError)} Confira a live e abra o diagnóstico no painel para tentar de novo.`, "error");
+      return;
+    }
+    showRetry();
+  });
   window.TikTokBridge.on("chat", (event) => engine.chat(event));
   window.TikTokBridge.on("like", (event) => engine.like(event));
   window.TikTokBridge.on("gift", (event) => {
