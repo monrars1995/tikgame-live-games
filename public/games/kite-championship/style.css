@@ -34,7 +34,8 @@ h1 i { display: inline-block; color: #ffe68c; font-size: 15px; vertical-align: t
 .connection-status strong { font-size: 10px; font-weight: 900; letter-spacing: .3px; }
 .connection-status span { font-size: 9px; font-weight: 700; }
 .connection-status span:empty { display: none; }
-.connection-status.live { color: #c7ffe0; border-color: #95f4bc; background: #123c33d9; }
+.connection-status.live { top: 111px; right: 17px; left: auto; display: block; width: 14px; height: 14px; max-width: none; padding: 0; border: 2px solid #e6fff1; border-radius: 50%; background: #30e378; box-shadow: 0 0 0 2px #0a403788, 0 0 10px #49ff9a; }
+.connection-status.live strong, .connection-status.live span { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .connection-status.retrying { border-color: #ffe58d; background: #4d3617e8; }
 .connection-status.error { border-color: #ff9ca5; background: #612638ec; }
 .connection-status.local { border-color: #b8cbff; background: #253454e8; }

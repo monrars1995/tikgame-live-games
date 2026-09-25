@@ -94,7 +94,7 @@ if (demo) {
     retryAttempt = 0;
     retryDelayMs = 0;
     exhausted = false;
-    status(`● LIVE @${liveUsername} CONECTADA`, "Interações ativadas.", "live");
+    status(`LIVE @${liveUsername} CONECTADA`, "Interações ativadas.", "live");
   });
   window.TikTokBridge.on("disconnected", (data) => {
     connected = false;

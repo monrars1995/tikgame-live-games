@@ -1,6 +1,6 @@
 # TikGame Live Games · Fliperama para TikTok LIVE
 
-Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.2.1** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
+Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.2.2** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
 
 | Mini-game | Entrada e ação principal | Duração |
 | --- | --- | --- |
