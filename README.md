@@ -1,23 +1,20 @@
-# TikGame Live Games · Corrida do Povo 🏇
+# TikGame Live Games · Fliperama para TikTok LIVE
 
-Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A primeira versão própria transforma a corrida de cavalos em uma disputa vertical para OBS e TikTok LIVE Studio: comentários escolhem os cavalos, curtidas dão impulso leve e presentes aceleram a equipe escolhida.
+Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.2.0** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
 
-**Estado:** versão `1.1.0`. Fluxos de jogo e do servidor têm testes automatizados. A recepção de eventos reais ainda precisa ser confirmada em uma live ativa, pois depende do acesso do conector ao TikTok.
+| Mini-game | Entrada e ação principal | Duração |
+| --- | --- | --- |
+| **Corrida do Povo** | Comente 1–5 para escolher um cavalo; curtidas dão impulso leve e presentes aceleram. | Até a chegada ou expirar o tempo |
+| **Cabo de Guerra** | Comente azul/vermelho ou qualquer texto para entrar em um time; likes puxam pouco, rosas e outros presentes puxam mais. | 60 s ou vitória pela corda |
+| **Céu de Corte** (Campeonato de Pipas) | Comente para soltar uma pipa; as linhas cruzam antes do corte. Rosa causa 25 de dano, curtida 0,55; presente de 50+ ativa golpe especial. | 60 s |
+| **Rosas × Corações** | Comente para entrar na torcida; presentes atacam pelo lado das rosas e taps pelo lado dos corações. | 60 s |
+| **Top Moedas × Taps** | Dois rankings Top 10, maior presente e maior combo. Presentes somam valor; curtidas somam taps. | 120 s |
 
-## Como jogar na live
+O **Top Moedas × Taps** segue a hierarquia visual de confronto com cronômetro, área para câmera do streamer e duas colunas de ranking. A área superior é transparente na captura real: no OBS, posicione a fonte de câmera **atrás** do overlay. Na demonstração, uma silhueta ocupa esse espaço. O valor exibido em “moedas” é o `diamondCount`/`giftValue` informado pelo conector, usado como pontuação do jogo; **não representa receita ou saldo financeiro**. Para comparar forças na rodada, um ponto de valor de presente equivale a 20 taps, regra mostrada no overlay.
 
-- Comente **1, 2, 3, 4 ou 5** para escolher um cavalo. O nome do cavalo também funciona. Qualquer outro comentário entra automaticamente no próximo cavalo disponível.
-- O primeiro comentário inicia a contagem regressiva. Outros comentários dão um impulso pequeno, limitado a um por usuário a cada 15 segundos.
-- **Curtidas** movimentam o cavalo do usuário, com força de **0,2 por curtida**. Um evento tem limite de 100 curtidas para evitar saltos anormais.
-- **Rosas e outros presentes** dão impulso conforme o valor em moedas. Um combo de cinco Rosas soma cinco unidades, sem contar os eventos parciais duas vezes. Um presente de 50 moedas supera o impulso de cinco Rosas.
-- Se alguém enviar curtida ou presente antes de comentar, entra automaticamente em um cavalo. O cavalo fica fixo até a próxima corrida.
-- O primeiro a cruzar a chegada vence. Se o tempo terminar, ganha o cavalo mais avançado. A corrida reinicia automaticamente.
+## Instalar e abrir
 
-A fórmula de impulso de um presente é `min(140, round(8 × moedas^0,55))` por unidade; a chegada está em 300 pontos. Esses valores ficam em [config.js](public/games/horse-racing/config.js).
-
-## Instalar e usar
-
-Requer Node.js **20+** e npm. Use uma live TikTok em andamento e um perfil que o conector consiga acessar.
+Requer Node.js **20+** e npm. Para conectar a uma live real, o perfil precisa estar transmitindo e acessível ao conector.
 
 ```bash
 git clone https://github.com/monrars1995/tikgame-live-games.git
@@ -26,37 +23,47 @@ npm ci
 PORT=3100 npm start
 ```
 
-Abra [http://localhost:3100](http://localhost:3100), informe o @ da live sem `@`, selecione **Corrida do Povo** e gere o link. Abra o overlay em 450 × 800 (9:16) no OBS ou no TikTok LIVE Studio como fonte de navegador. A página de diagnóstico em `/debug.html` mostra os eventos recebidos e ajuda a verificar nomes e valores dos presentes. O servidor usa a porta 3000 por padrão; 3100 evita conflito com a instância local do TikGame que usa 8080.
+Abra [http://localhost:3100](http://localhost:3100), informe o @ que está transmitindo, escolha o jogo e gere o link da arena. Configure a fonte de navegador em **450 × 800** (9:16). O servidor usa `127.0.0.1` por padrão e porta 3000 se `PORT` não for definida; 3100 evita conflito com uma instalação local anterior do TikGame na porta 8080.
 
-A conexão depende do TikTok manter a live acessível e pode sofrer restrições fora do controle do jogo. Antes de usar presentes pagos, teste primeiro com um comentário e verifique a chegada do evento no debugger. O overlay não deve ser apresentado como validado com eventos reais apenas porque os testes locais passaram.
+Cada jogo também tem uma **demonstração** no painel. O link `?demo=1` cria eventos fictícios, marca a tela como “DEMONSTRAÇÃO” e não requer live. Use a prévia para revisar layout e movimento; use o link com `?id=perfil` para a captura real. A página `/debug.html` monitora os eventos recebidos do TikTok. Antes de testar presentes pagos, confirme um comentário e curtidas reais no monitor e na arena.
 
-Por padrão o servidor escuta apenas em `127.0.0.1`. Para uma instalação em outra máquina, defina `HOST=0.0.0.0` e proteja a rede e o acesso à sala antes de expor a porta publicamente.
+| Arena | Prévia local |
+| --- | --- |
+| Corrida do Povo | `/games/horse-racing/index.html?demo=1` |
+| Cabo de Guerra | `/games/tug-of-war/index.html?demo=1` |
+| Céu de Corte | `/games/kite-championship/index.html?demo=1` |
+| Rosas × Corações | `/games/roses-vs-hearts/index.html?demo=1` |
+| Top Moedas × Taps | `/games/top-coins-vs-taps/index.html?demo=1` |
 
-## Arquitetura
+## Regras e conexão
+
+O backend compartilha uma conexão por @ entre páginas na mesma sala Socket.io, tenta reconectar em falhas e libera a conexão quando a última página sai. O contrato `tiktok_chat`, `tiktok_like`, `tiktok_gift` e `tiktok_share` foi preservado. Os jogos novos compartilham um utilitário que conta apenas as **unidades adicionais** de combos cumulativos de presentes e deduplica mensagens repetidas. Os rankings são limitados por rodada; efeitos transitórios são removidos do DOM.
+
+Na Corrida do Povo, nomes de cavalo e números 1–5 escolhem a raia; outros comentários distribuem o jogador automaticamente. A escolha fica fixa durante a corrida. Curtidas valem 0,2 por tap, até 100 por evento; o primeiro comentário inicia a contagem. A fórmula de impulso por presente é `min(140, round(8 × valor^0,55))` por unidade, com chegada em 300 pontos. Veja [config.js](public/games/horse-racing/config.js).
+
+No Cabo de Guerra, comentários de texto livre são equilibrados entre azul e vermelho. O time do jogador fica fixo na rodada. No Céu de Corte, há até 12 pipas ativas, fila de espera, vida por pipa e troféus; um ataque só causa dano se as linhas cruzarem geometricamente. Rosas são o ataque padrão de corte e curtidas são muito mais fracas. No X1, cada interação aumenta o ranking correspondente e afeta a barra de vida do lado oposto. As regras numéricas estão nos motores de cada jogo.
+
+## Arquitetura e validação
 
 ```text
 TikTok LIVE → TikTokLiveConnection → TikTokService → salas Socket.io
                                                      ↓
                                             tiktok-bridge.js
                                                      ↓
-                                      Corrida do Povo (Canvas + HUD)
+                                      cinco mini-games (Canvas/DOM)
 ```
 
-Cada @ gera uma sala. O backend compartilha a conexão entre espectadores da mesma live, reconecta em caso de falha e libera a conexão após a saída da última página. O contrato de eventos `tiktok_chat`, `tiktok_like`, `tiktok_gift` e `tiktok_share` foi preservado. A normalização aceita campos aninhados do conector 2.x.
-
-O projeto usa Express, Socket.io, JavaScript moderno e Canvas 2D. Os arquivos principais são `src/server.js`, `src/services/TikTokService.js`, `src/lib/tiktokEventNormalizer.js` e `public/games/horse-racing/`. Não é necessária uma conta ou chave TikTok no navegador.
-
-## Desenvolvimento e validação
+O servidor fica em `src/`; o seletor e monitor ficam em `public/`; os jogos ficam em `public/games/`; e os testes estão em `tests/`. O navegador não precisa de chave ou conta TikTok. Para uma instalação em outra máquina, defina `HOST=0.0.0.0` somente em uma rede controlada.
 
 ```bash
 npm test
-npm run dev
+npm audit --omit=dev
 ```
 
-Os testes cobrem seleção por comentário, limites de chat e curtida, combo de Rosas, chegada, normalização dos eventos, concorrência de conexão e contagem de salas. Para homologar na transmissão, confirme no `/debug.html` que um comentário, dez curtidas, uma Rosa e um presente de maior valor chegaram com usuário, valor e contagem corretos; confira o mesmo efeito no overlay. Isso requer uma live real e não é substituído por simulação local.
+Os testes e as demonstrações verificam regras e renderização local. **Eles não comprovam recepção de eventos de uma live real.** Para homologar, confirme no `/debug.html` que comentário, sequência de curtidas, Rosa e presente de maior valor chegaram com usuário, valor e contagem corretos; confira o mesmo efeito no overlay. O acesso ao protocolo TikTok pode variar conforme a live e a plataforma.
 
 ## Origem, licença e contato
 
-Baseado no projeto [TikTok Live Games de @vamnguyen](https://github.com/vamnguyen/tiktok-live-games), que declara a licença MIT no README e no `package.json`. O repositório de origem não incluía um arquivo `LICENSE` no commit usado para o fork; este fork inclui o texto MIT e preserva a atribuição. A API e as regras da plataforma TikTok não fazem parte desta licença.
+Baseado no projeto [TikTok Live Games de @vamnguyen](https://github.com/vamnguyen/tiktok-live-games), licenciado em MIT. Este fork inclui [LICENSE](LICENSE) com a atribuição preservada. A API e as regras do TikTok não fazem parte dessa licença.
 
 Gold Neuron · Instagram [@monrars](https://instagram.com/monrars) · [goldneuron.io](https://goldneuron.io) · GitHub [@monrars1995](https://github.com/monrars1995).

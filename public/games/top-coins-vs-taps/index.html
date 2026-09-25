@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#160920" />
+    <title>Top Moedas vs Top Taps · TikGame</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="arena">
+      <header class="masthead">
+        <div class="brand"><span class="brand-mark">ϟ</span><span><small>TIKGAME / GOLD NEURON</small><strong>BATALHA AO VIVO</strong></span></div>
+        <span id="liveStatus" class="live-status">AGUARDANDO LIVE</span>
+      </header>
+
+      <section class="camera-stage" aria-label="Área para câmera do streamer na captura">
+        <div class="stage-glow"></div>
+        <div class="demo-scene" aria-hidden="true"><div class="demo-head"></div><div class="demo-body"></div><span>SUA CÂMERA NA LIVE</span></div>
+        <div class="stage-info top-gift"><span>✦ MAIOR PRESENTE</span><strong id="topGift">Aguardando...</strong></div>
+        <div class="stage-info top-combo"><span>🌹 MAIOR COMBO</span><strong id="topCombo">Aguardando...</strong></div>
+      </section>
+
+      <section class="match" aria-label="Confronto Top Moedas contra Top Taps">
+        <div class="timer" id="timer">02:00</div>
+        <div class="match-title"><div class="coins-title"><span>TOP</span><strong>MOEDAS</strong></div><b>VS</b><div class="taps-title"><span>TOP</span><strong>TAPS</strong></div></div>
+        <div class="power-bar"><span id="coinPower"></span><span id="tapPower"></span></div>
+        <div class="power-caption"><span id="coinTotal">0 VALOR EM PRESENTES</span><span id="tapTotal">0 CURTIDAS</span></div>
+      </section>
+
+      <main class="boards">
+        <section class="board coins-board" aria-labelledby="coinsTitle">
+          <h2 id="coinsTitle"><span>🪙</span> TOP MOEDAS</h2>
+          <ol id="coinsList" class="rank-list"></ol>
+        </section>
+        <section class="board taps-board" aria-labelledby="tapsTitle">
+          <h2 id="tapsTitle"><span>❤️</span> TOP TAPS</h2>
+          <ol id="tapsList" class="rank-list"></ol>
+        </section>
+      </main>
+
+      <footer class="cta"><strong>🌹 ENVIE PRESENTES</strong><span>OU</span><strong>❤️ TOQUE NA TELA</strong><small>Seu @ sobe no ranking · 1 valor de presente = 20 taps no confronto</small></footer>
+      <div id="effects" class="effects" aria-hidden="true"></div>
+      <div id="result" class="result hidden" role="status" aria-live="polite"><div><small>RODADA ENCERRADA</small><strong id="resultText"></strong><span>A próxima disputa começa em instantes</span></div></div>
+      <span id="demoBadge" class="demo-badge" hidden>DEMONSTRAÇÃO</span>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/lib/tiktok-bridge.js"></script>
+    <script src="/games/shared/live-utils.js"></script>
+    <script src="engine.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>

@@ -29,9 +29,14 @@
 	const winnerEmoji = document.getElementById("winnerEmoji");
 	const winnerName = document.getElementById("winnerName");
 	const winnerSupporters = document.getElementById("winnerSupporters");
-	const hasStreamer = new URLSearchParams(window.location.search).has("id") ||
-		new URLSearchParams(window.location.search).has("username");
-	let connectionHint = hasStreamer ? "Conectando à live…" : "Abra a arena pelo painel para conectar";
+	const params = new URLSearchParams(window.location.search);
+	const demo = params.get("demo") === "1";
+	const hasStreamer = params.has("id") || params.has("username");
+	let connectionHint = demo ? "DEMONSTRAÇÃO · DADOS FICTÍCIOS" : hasStreamer ? "Conectando à live…" : "Abra a arena pelo painel para conectar";
+	if (demo) {
+		document.body.classList.add("demo");
+		document.querySelector(".arena-live-label").textContent = "DEMONSTRAÇÃO";
+	}
 
 	// ==========================================
 	// CANVAS SIZING
@@ -49,10 +54,10 @@
 	TikTokBridge.on("gift", (data) => engine.handleGift(data));
 	TikTokBridge.on("chat", (data) => engine.handleChat(data));
 	TikTokBridge.on("like", (data) => engine.handleLike(data));
-	TikTokBridge.on("connected", () => { connectionHint = null; });
-	TikTokBridge.on("reconnecting", () => { connectionHint = "Reconectando à live…"; });
-	TikTokBridge.on("disconnected", () => { connectionHint = "Live desconectada · reconectando…"; });
-	TikTokBridge.on("error", () => { connectionHint = "Sem conexão · confira o @ e a live"; });
+	TikTokBridge.on("connected", () => { if (!demo) connectionHint = null; });
+	TikTokBridge.on("reconnecting", () => { if (!demo) connectionHint = "Reconectando à live…"; });
+	TikTokBridge.on("disconnected", () => { if (!demo) connectionHint = "Live desconectada · reconectando…"; });
+	TikTokBridge.on("error", () => { if (!demo) connectionHint = "Sem conexão · confira o @ e a live"; });
 	engine.on("laneMove", ({ laneIdx, lane, distance }) => {
 		const width = canvas.width;
 		const height = canvas.height;
@@ -274,7 +279,7 @@
 		// Event feed
 		if (state.recentEvents[0] !== lastFeedHead) {
 			lastFeedHead = state.recentEvents[0] || null;
-			renderFeed(state.recentEvents.slice(0, 8));
+			renderFeed(state.recentEvents.slice(0, 2));
 		}
 
 		// Winner overlay
@@ -326,6 +331,18 @@
 	// ==========================================
 	// START
 	// ==========================================
+	if (demo) {
+		const supporters = ["Lia", "Bia", "Rafa", "Davi", "Nina"].map((name, index) => ({ uniqueId: `demo${index + 1}`, nickname: name }));
+		let demoTick = 0;
+		setInterval(() => {
+			const index = demoTick % supporters.length;
+			const user = supporters[index];
+			engine.handleChat({ user, comment: String(index + 1) });
+			if (demoTick % 3 === 0) engine.handleGift({ user, giftId: 5655, giftName: "Rose", giftValue: 1, repeatCount: 1 });
+			else engine.handleLike({ user, likeCount: 14 + index * 3 });
+			demoTick++;
+		}, 850);
+	}
 	requestAnimationFrame(frame);
 	console.log(
 		"[HorseRacing] Game loaded, waiting for TikTokBridge connection...",

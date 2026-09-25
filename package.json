@@ -1,7 +1,7 @@
 {
   "name": "tikgame-live-games",
-  "version": "1.1.0",
-  "description": "Fliperama interativo para lives TikTok: Corrida do Povo com chat, curtidas e presentes",
+  "version": "1.2.0",
+  "description": "Fliperama TikTok LIVE com cinco mini-games interativos de chat, curtidas e presentes",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

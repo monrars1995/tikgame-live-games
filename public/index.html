@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Crie sua arena de corrida para a live: o chat escolhe os cavalos e presentes aceleram a disputa."
+      content="TikGame: cinco mini-games interativos para TikTok LIVE com chat, rosas, presentes e curtidas."
     />
     <meta name="theme-color" content="#111017" />
-    <title>TikGame · Corrida do Povo</title>
+    <title>TikGame · Fliperama para TikTok LIVE</title>
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
@@ -32,30 +32,30 @@
     <main>
       <section class="hero shell" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="signal-dot" aria-hidden="true"></span> NOVO JOGO PARA LIVE</p>
-          <h1 id="hero-title">A torcida entra na pista.<br /><em>A corrida vira espetáculo.</em></h1>
+          <p class="eyebrow"><span class="signal-dot" aria-hidden="true"></span> FLIPERAMA PARA SUA LIVE</p>
+          <h1 id="hero-title">Cada interação<br /><em>vira uma disputa.</em></h1>
           <p class="hero-lead">
-            O público escolhe um cavalo pelo chat. Rosas e outros presentes aceleram a disputa;
-            curtidas dão um impulso leve. Você transmite, a comunidade joga.
+            Cinco mini-games para o público entrar pelo chat, curtir, enviar rosas e disputar
+            o topo. Escolha o modo e capture a arena vertical na sua transmissão.
           </p>
           <a class="hero-link" href="#montar-arena">Montar minha arena <span aria-hidden="true">↘</span></a>
         </div>
-        <div class="race-illustration" role="img" aria-label="Ilustração de cinco cavalos em pistas de corrida">
-          <div class="race-illustration-top"><span>CORRIDA DO POVO</span><span>05 PISTAS</span></div>
+        <div class="race-illustration" role="img" aria-label="Ilustração dos cinco mini-games do TikGame">
+          <div class="race-illustration-top"><span>FLIPERAMA TIKGAME</span><span>05 MODOS</span></div>
           <div class="track-preview" aria-hidden="true">
-            <div class="preview-lane"><span class="lane-index">01</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
-            <div class="preview-lane"><span class="lane-index">02</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
-            <div class="preview-lane"><span class="lane-index">03</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
-            <div class="preview-lane"><span class="lane-index">04</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
-            <div class="preview-lane"><span class="lane-index">05</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+            <div class="preview-lane"><span class="lane-index">01</span><span class="runner">🏇</span><span class="preview-label">CORRIDA DO POVO</span><span class="preview-line"></span><span class="finish">↗</span></div>
+            <div class="preview-lane"><span class="lane-index">02</span><span class="runner">🪢</span><span class="preview-label">CABO DE GUERRA</span><span class="preview-line"></span><span class="finish">↗</span></div>
+            <div class="preview-lane"><span class="lane-index">03</span><span class="runner">🪁</span><span class="preview-label">CAMPEONATO DE PIPAS</span><span class="preview-line"></span><span class="finish">↗</span></div>
+            <div class="preview-lane"><span class="lane-index">04</span><span class="runner">🌹</span><span class="preview-label">ROSAS X CORAÇÕES</span><span class="preview-line"></span><span class="finish">↗</span></div>
+            <div class="preview-lane"><span class="lane-index">05</span><span class="runner">🏆</span><span class="preview-label">TOP MOEDAS X TAPS</span><span class="preview-line"></span><span class="finish">↗</span></div>
           </div>
-          <div class="race-illustration-bottom"><span>CHAT + PRESENTES + CURTIDAS</span><span>↗</span></div>
+          <div class="race-illustration-bottom"><span>CHAT + ROSAS + PRESENTES + CURTIDAS</span><span>↗</span></div>
         </div>
       </section>
 
       <section class="setup shell" id="montar-arena" aria-labelledby="setup-title">
         <div class="setup-heading">
-          <div><p class="eyebrow">01 / PREPARAR A LIVE</p><h2 id="setup-title">Coloque a corrida no ar</h2></div>
+          <div><p class="eyebrow">01 / PREPARAR A LIVE</p><h2 id="setup-title">Escolha sua arena</h2></div>
           <span class="setup-note">Só funciona enquanto o perfil estiver ao vivo no TikTok</span>
         </div>
         <div class="setup-grid">
@@ -64,15 +64,29 @@
             <div class="input-wrap"><span aria-hidden="true">@</span><input id="username" name="username" type="text" inputmode="text" placeholder="seuusuario" autocomplete="username" spellcheck="false" aria-describedby="username-help" /></div>
             <p class="field-help" id="username-help">Digite o ID do perfil, com ou sem @. A live precisa estar aberta.</p>
 
-            <div class="game-choice-label" id="games">Jogo disponível <span>01 / 01</span></div>
-            <button class="game-card selected" type="button" data-game="horse-racing" data-entry="index.html" data-param="id" aria-pressed="true">
-              <span class="game-icon" aria-hidden="true">♞</span>
-              <span class="game-card-copy"><strong>Corrida do Povo</strong><small>5 cavalos · chat, curtidas e presentes</small></span>
-              <span class="game-selected" aria-hidden="true">✓</span>
-            </button>
+            <div class="game-choice-label" id="games">Mini-games disponíveis <span>05 / 05</span></div>
+            <div class="game-grid" role="group" aria-label="Escolha um mini-game">
+              <button class="game-card selected" type="button" data-game="horse-racing" data-entry="index.html" data-param="id" aria-pressed="true">
+                <span class="game-icon" aria-hidden="true">🏇</span><span class="game-card-copy"><strong>Corrida do Povo</strong><small>5 cavalos · disputa por impulso</small></span><span class="game-selected" aria-hidden="true">✓</span>
+              </button>
+              <button class="game-card" type="button" data-game="tug-of-war" data-entry="index.html" data-param="id" aria-pressed="false">
+                <span class="game-icon" aria-hidden="true">🪢</span><span class="game-card-copy"><strong>Cabo de Guerra</strong><small>Azul x vermelho · puxe sua equipe</small></span><span class="game-selected" aria-hidden="true">✓</span>
+              </button>
+              <button class="game-card" type="button" data-game="kite-championship" data-entry="index.html" data-param="id" aria-pressed="false">
+                <span class="game-icon" aria-hidden="true">🪁</span><span class="game-card-copy"><strong>Campeonato de Pipas</strong><small>Linhas cruzadas · corte e troféus</small></span><span class="game-selected" aria-hidden="true">✓</span>
+              </button>
+              <button class="game-card" type="button" data-game="roses-vs-hearts" data-entry="index.html" data-param="id" aria-pressed="false">
+                <span class="game-icon" aria-hidden="true">🌹</span><span class="game-card-copy"><strong>Rosas x Corações</strong><small>X1 · presentes contra curtidas</small></span><span class="game-selected" aria-hidden="true">✓</span>
+              </button>
+              <button class="game-card" type="button" data-game="top-coins-vs-taps" data-entry="index.html" data-param="id" aria-pressed="false">
+                <span class="game-icon" aria-hidden="true">🏆</span><span class="game-card-copy"><strong>Top Moedas x Taps</strong><small>Dois rankings · top 10 ao vivo</small></span><span class="game-selected" aria-hidden="true">✓</span>
+              </button>
+            </div>
+
+            <a id="demoLink" class="demo-link" href="/games/horse-racing/index.html?demo=1" target="_blank" rel="noopener noreferrer">↗ Abrir demonstração do jogo selecionado</a>
 
             <button class="primary-button" type="button" id="generateBtn">Gerar link da arena <span aria-hidden="true">↗</span></button>
-            <p class="form-hint">O link conecta ao TikTok quando aberto na live. Gerá-lo não inicia a transmissão.</p>
+            <p class="form-hint">O link tenta conectar à live do @ informado. A demonstração usa eventos fictícios e não altera o placar real.</p>
 
             <div class="output-section" id="outputSection" aria-live="polite">
               <label class="output-label" for="outputUrl">Link para OBS ou TikTok LIVE Studio</label>
@@ -83,13 +97,13 @@
 
           <div class="how-card" id="como-jogar">
             <p class="eyebrow">02 / CHAMAR A TORCIDA</p>
-            <h3>Todo mundo tem um jeito de jogar.</h3>
+            <h3 id="howTitle">A torcida acelera cada cavalo.</h3>
             <ol class="steps">
-              <li><span class="step-icon">01</span><div><strong>Comente 1–5</strong><p>Escolha seu cavalo e entre na disputa.</p></div></li>
-              <li><span class="step-icon rose">✿</span><div><strong>Envie rosas ou presentes</strong><p>Impulsione o cavalo que você escolheu.</p></div></li>
-              <li><span class="step-icon heart">♥</span><div><strong>Curta a live</strong><p>Cada sequência de curtidas dá um impulso leve.</p></div></li>
+              <li><span class="step-icon">01</span><div><strong id="rule1Title">Comente 1–5</strong><p id="rule1Text">Escolha seu cavalo e entre na disputa.</p></div></li>
+              <li><span class="step-icon rose">✿</span><div><strong id="rule2Title">Envie rosas ou presentes</strong><p id="rule2Text">Impulsione o cavalo que você escolheu.</p></div></li>
+              <li><span class="step-icon heart">♥</span><div><strong id="rule3Title">Curta a live</strong><p id="rule3Text">Cada sequência de curtidas dá um impulso leve.</p></div></li>
             </ol>
-            <div class="capture-tip"><span aria-hidden="true">▣</span><p><strong>Pronto para captura vertical</strong>Use o link gerado como fonte de navegador em <b>450 × 800</b> (9:16). Teste um comentário e uma rosa antes de começar.</p></div>
+            <div class="capture-tip"><span aria-hidden="true">▣</span><p><strong>Pronto para captura vertical</strong>Use o link gerado como fonte de navegador em <b>450 × 800</b> (9:16). Confirme comentário e curtida no monitor antes de testar um presente.</p></div>
           </div>
         </div>
       </section>

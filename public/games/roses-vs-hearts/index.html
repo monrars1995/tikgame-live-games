@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="theme-color" content="#180526" />
+	<title>X1 Rosas x Corações · TikGame</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<main id="stage" class="stage" aria-label="X1 Rosas contra Corações">
+		<div class="aurora aurora-a" aria-hidden="true"></div>
+		<div class="aurora aurora-b" aria-hidden="true"></div>
+		<div id="effectLayer" class="effect-layer" aria-hidden="true"></div>
+		<header class="topline">
+			<div class="brand"><span class="brand-mark">✦</span><span>TIKGAME <b>LIVE BATTLE</b></span></div>
+			<div class="status-area"><span id="demoBadge" class="demo-badge" hidden>DEMONSTRAÇÃO</span><span id="connectionDot" class="connection-dot"></span><span id="connectionText">AGUARDANDO LIVE</span></div>
+		</header>
+		<section class="headline" aria-label="Rodada">
+			<div>
+				<p class="eyebrow">A TORCIDA DECIDE O VENCEDOR</p>
+				<h1><span>ROSAS</span><em>×</em><span>CORAÇÕES</span></h1>
+			</div>
+			<div class="clock"><small>RODADA <b id="roundNumber">01</b></small><strong id="timer">01:00</strong></div>
+		</section>
+		<div class="round-track"><span id="roundTrackFill"></span></div>
+		<section class="battle" aria-label="Confronto da rodada">
+			<div class="fighter roses" id="roseFighter">
+				<div class="fighter-halo"><div class="fighter-face"><span class="fighter-icon">🌹</span><span class="fighter-eyes">● ●</span></div></div>
+				<div class="fighter-name">TIME ROSAS</div>
+				<div class="fighter-score"><strong id="roseCoins">0</strong><span>MOEDAS</span></div>
+			</div>
+			<div class="versus" aria-hidden="true"><span>VS</span><i>✦</i></div>
+			<div class="fighter hearts" id="heartFighter">
+				<div class="fighter-halo"><div class="fighter-face"><span class="fighter-icon">♥</span><span class="fighter-eyes">● ●</span></div></div>
+				<div class="fighter-name">TIME CORAÇÕES</div>
+				<div class="fighter-score"><strong id="heartLikes">0</strong><span>TAPS</span></div>
+			</div>
+		</section>
+		<section class="combat-stats" aria-label="Vida e torcidas">
+			<div class="health-row roses"><div class="health-caption"><span>🌹 ROSAS</span><b id="roseHealthLabel">100%</b></div><div class="health-rail"><span id="roseHealthFill"></span></div></div>
+			<div class="health-row hearts"><div class="health-caption"><span>♥ CORAÇÕES</span><b id="heartHealthLabel">100%</b></div><div class="health-rail"><span id="heartHealthFill"></span></div></div>
+			<div class="crowd-line"><span><b id="roseJoined">0</b> na torcida rosa</span><span><b id="heartJoined">0</b> na torcida coração</span></div>
+		</section>
+		<section class="leaderboards" aria-label="Ranking dos apoiadores">
+			<div class="leaderboard roses"><h2><span>👑</span> TOP MOEDAS</h2><ol id="roseTop"></ol></div>
+			<div class="leaderboard hearts"><h2><span>⚡</span> TOP TAPS</h2><ol id="heartTop"></ol></div>
+		</section>
+		<footer class="instructions">
+			<div class="instruction rose-cta"><span class="cta-icon">🌹</span><span><b>MANDE ROSAS</b><small>Presentes valem suas moedas</small></span></div>
+			<div class="instruction heart-cta"><span class="cta-icon">♥</span><span><b>TOQUE NA TELA</b><small>Cada curtida fortalece o time</small></span></div>
+			<p>Comente <b>ROSA</b> ou <b>CORAÇÃO</b> para escolher sua torcida.</p>
+		</footer>
+		<div id="winner" class="winner" hidden role="status" aria-live="assertive"><div class="winner-box"><span class="winner-kicker">FIM DE RODADA</span><strong id="winnerTitle"></strong><span id="winnerDetail"></span><small>PRÓXIMA RODADA EM INSTANTES</small></div></div>
+	</main>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="/lib/tiktok-bridge.js"></script>
+	<script src="/games/shared/live-utils.js"></script>
+	<script src="duel-engine.js"></script>
+	<script src="game.js"></script>
+</body>
+</html>

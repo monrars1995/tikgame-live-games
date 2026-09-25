@@ -1,4 +1,4 @@
-# TikGame Live Games · Corrida do Povo
+# TikGame Live Games · Fliperama
 
 Fork de `vamnguyen/tiktok-live-games` para lives TikTok em português. Execute este projeto no checkout `tikgame-live-games`; ele é separado do `tikgame-live` local.
 
@@ -8,7 +8,12 @@ Fork de `vamnguyen/tiktok-live-games` para lives TikTok em português. Execute e
 - `src/services/TikTokService.js`: conexão compartilhada, retry e limpeza.
 - `src/lib/tiktokEventNormalizer.js`: contrato de chat, curtida, presente e compartilhamento.
 - `public/lib/tiktok-bridge.js`: cliente do Socket.io consumido pelos jogos.
-- `public/games/horse-racing/`: configuração, motor de corrida, Canvas e HUD.
+- `public/games/horse-racing/`: Corrida do Povo.
+- `public/games/tug-of-war/`: Cabo de Guerra.
+- `public/games/kite-championship/`: Céu de Corte, pipas e linhas.
+- `public/games/roses-vs-hearts/`: duelo Rosas × Corações.
+- `public/games/top-coins-vs-taps/`: rankings Top Moedas × Taps.
+- `public/games/shared/live-utils.js`: identidade de usuário, combo incremental e funções de exibição compartilhadas.
 - `public/index.html`: dashboard; `public/debug.html`: monitor de eventos.
 - `tests/`: verificações de conexão, bridge, normalização e regras do jogo.
 
@@ -18,7 +23,7 @@ Node.js 20+, npm, `npm ci`, `npm test`, `PORT=3100 npm start`. O servidor escuta
 
 ## Regras de interação
 
-Um comentário escolhe o cavalo por 1–5 ou nome; qualquer outro texto distribui o usuário. A escolha fica fixa até a próxima corrida. Curtidas são fracas; presentes aceleram conforme moedas; combos cumulativos contam apenas novas unidades. O primeiro a chegar vence ou, ao expirar o tempo, o mais avançado.
+Os cinco modos recebem os mesmos eventos normalizados. Comentários admitem participantes; curtidas têm ações fracas; presentes são contabilizados pelo valor recebido e combos cumulativos contam apenas novas unidades. Preserve interações pagas recebidas durante banners de resultado para a rodada seguinte. No Céu de Corte, rosas são o ataque padrão e curtidas são bem mais fracas; cortes exigem cruzamento geométrico de linhas.
 
 ## Limites de alteração
 
