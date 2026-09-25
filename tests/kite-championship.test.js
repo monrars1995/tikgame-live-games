@@ -217,3 +217,116 @@ test("priority admission restores a displaced chat pilot when the pilot cap prev
   assert.equal(engine.pilots.size, 3);
   assert.equal(engine.drainEvents().filter((event) => event.type === "skyGift").length, 1);
 });
+
+test("three NPC kites appear while waiting without consuming viewer slots or ranking seats", () => {
+  const { engine } = round({ rules: { maxKites: 1, maxQueue: 1, maxPilots: 2 } });
+  assert.equal(engine.phase, "waiting");
+  assert.equal(engine.npcs.length, 3);
+  assert.equal(new Set(engine.npcs.map((kite) => kite.id)).size, 3);
+  assert.ok(engine.npcs.every((kite) => kite.npc && kite.alive && kite.hp === engine.rules.health
+    && kite.name.startsWith("NPC ") && Number.isFinite(kite.anchorX) && kite.attack === null));
+  assert.equal(engine.active.length, 0);
+  assert.equal(engine.pilots.size, 0);
+  engine.chat(user("a")); engine.chat(user("b"));
+  assert.deepEqual(engine.kites.map((kite) => kite.id), ["a"]);
+  assert.deepEqual(engine.queue.map((pilot) => pilot.id), ["b"]);
+  assert.deepEqual(engine.ranking.map((pilot) => pilot.id).sort(), ["a", "b"]);
+  assert.ok(engine.npcs.every((kite) => !engine.pilots.has(kite.id)));
+});
+
+test("a solo viewer can cut each NPC by crossing lines with roses and win only after the last cut", () => {
+  const { engine, advance } = round({ rules: { npcAttackMs: 100000 } });
+  engine.chat(user("solo"));
+  advance(8100);
+  assert.equal(engine.phase, "active");
+  for (let index = 0; index < 3; index++) {
+    assert.equal(engine.gift({ ...user("solo"), giftName: "Rosa", giftValue: 1 }, 5, true), true);
+    advance(650);
+    assert.equal(engine.npcs.filter((kite) => !kite.alive).length, index + 1);
+    assert.equal(engine.phase, index === 2 ? "results" : "active");
+    if (index < 2) advance(500);
+  }
+  assert.equal(engine.winner.id, "solo");
+  assert.equal(engine.pilots.get("solo").cuts, 3);
+  assert.equal(engine.pilots.get("solo").trophies, 1);
+  assert.equal(engine.ranking.length, 1);
+  const cuts = engine.drainEvents().filter((event) => event.type === "cut");
+  assert.equal(cuts.length, 3);
+  assert.ok(cuts.every((event) => event.targetNpc === true && event.attackerNpc === false));
+});
+
+test("a solo viewer's rose still deals 25 damage and likes remain much weaker against NPCs", () => {
+  const setup = () => {
+    const game = round({ rules: { npcAttackMs: 100000 } });
+    game.engine.chat(user("solo"));
+    game.advance(8100);
+    return game;
+  };
+  const rose = setup();
+  rose.engine.gift({ ...user("solo"), giftName: "Rose", giftValue: 1 }, 1, true);
+  rose.advance(650);
+  assert.equal(rose.engine.npcs[0].hp, 75);
+  const likes = setup();
+  likes.engine.like({ ...user("solo"), likeCount: 10 });
+  likes.advance(650);
+  assert.equal(likes.engine.npcs[0].hp, 94.5);
+});
+
+test("NPCs attack only live viewers during active play, cause no trophy, and renew next round", () => {
+  const { engine, advance } = round({ rules: { lobbyMs: 100, npcAttackMs: 2000, resultsMs: 100 } });
+  advance(10000);
+  assert.equal(engine.phase, "waiting");
+  assert.ok(engine.npcs.every((kite) => kite.attack === null));
+  engine.chat(user("solo"));
+  advance(101);
+  engine.kites[0].hp = 1;
+  advance(2001);
+  assert.equal(engine.npcs[0].attack?.kind, "npc");
+  assert.equal(engine.npcs[0].attack?.damage, 2);
+  advance(650);
+  assert.equal(engine.kites[0].alive, false);
+  const botCut = engine.drainEvents().find((event) => event.type === "cut");
+  assert.equal(botCut?.attackerNpc, true);
+  assert.equal(botCut?.targetNpc, false);
+  assert.equal(engine.phase, "results");
+  assert.equal(engine.winner, null);
+  assert.equal(engine.pilots.get("solo").trophies, 0);
+  assert.ok(engine.npcs.every((kite) => kite.attack === null));
+  const previousNPCs = engine.npcs;
+  advance(101);
+  assert.equal(engine.phase, "waiting");
+  assert.equal(engine.npcs.length, 3);
+  assert.ok(engine.npcs.every((kite, index) => kite !== previousNPCs[index]
+    && kite.alive && kite.hp === engine.rules.health && kite.attack === null));
+  assert.equal(engine.ranking.length, 1);
+});
+
+test("1000 viewers occupy distinct sky positions and the 1001st waits without blocking combat", () => {
+  const { engine, advance } = round({ rules: { lobbyMs: 100, npcAttackMs: 100000 } });
+  assert.equal(KITE_RULES.maxKites, 1000);
+  for (let index = 0; index <= 1000; index++) engine.chat(user(`viewer-${index}`));
+  assert.equal(engine.kites.length, 1000);
+  assert.equal(engine.aliveHumans, 1000);
+  assert.equal(engine.queue.length, 1);
+  assert.equal(engine.queue[0].id, "viewer-1000");
+  assert.equal(engine.pilots.size, 1001);
+  assert.equal(engine.npcs.length, 3);
+  assert.ok(engine.kites.every((kite) => kite.x >= 23 && kite.x <= 427
+    && kite.y >= 190 && kite.y <= 510 && kite.anchorY >= 645 && kite.anchorY <= 730));
+  const occupiedCells = new Set(engine.kites.map((kite) =>
+    `${Math.floor(kite.x / 8)}:${Math.floor(kite.y / 8)}`));
+  assert.ok(occupiedCells.size > 850, `${occupiedCells.size} distinct 8px cells`);
+
+  advance(101);
+  assert.equal(engine.phase, "active");
+  engine.drainEvents();
+  assert.equal(engine.gift({ ...user("viewer-999"), giftName: "Rose", giftValue: 1 }, 1, true), true);
+  advance(650);
+  const hit = engine.drainEvents().find((event) => event.type === "hit" && event.id === "viewer-999");
+  assert.equal(hit?.damage, 25);
+  assert.equal(engine.aliveHumans, 1000);
+  for (let frame = 0; frame < 120; frame++) advance(16);
+  assert.equal(engine.kites.length, 1000);
+  assert.equal(engine.queue[0].id, "viewer-1000");
+  assert.ok(engine.kites.every((kite) => Number.isFinite(kite.x) && Number.isFinite(kite.y)));
+});

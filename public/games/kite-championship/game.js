@@ -72,14 +72,17 @@ function showRetry() {
 if (demo) {
   $("demoBadge").hidden = false;
   status("DEMONSTRAÇÃO", "Prévia interativa com eventos simulados.");
-  const names = ["Ana", "Biel", "Carla", "Davi", "Eva", "Fê", "Gui", "Iara"];
-  for (let index = 0; index < names.length; index++) {
-    engine.chat({ user: { uniqueId: `demo-${index}`, nickname: names[index] }, comment: "solta pipa" });
+  const names = ["Ana", "Biel", "Carla", "Davi", "Eva"];
+  const requestedUsers = Number(new URLSearchParams(location.search).get("participants"));
+  const demoUsers = Number.isInteger(requestedUsers) && requestedUsers > 0
+    ? Math.min(requestedUsers, engine.rules.maxKites) : names.length;
+  const demoUser = (index) => ({ uniqueId: `demo-${index}`, nickname: names[index] || `Piloto ${index + 1}` });
+  for (let index = 0; index < demoUsers; index++) {
+    engine.chat({ user: demoUser(index), comment: "solta pipa" });
   }
   let turn = 0;
   setInterval(() => {
-    const index = turn % names.length;
-    const user = { uniqueId: `demo-${index}`, nickname: names[index] };
+    const user = demoUser(turn % demoUsers);
     if (turn % 4 === 0) engine.gift({ user, giftName: "Rose", giftValue: 1 }, turn % 12 === 0 ? 5 : 1, true);
     else if (turn % 11 === 0) engine.gift({ user, giftName: "Special", giftValue: 50 }, 1, false);
     else engine.like({ user, likeCount: turn % 3 === 0 ? 60 : 14 });
@@ -238,48 +241,76 @@ function drawSky(t) {
   ctx.beginPath(); ctx.arc(411, 552, 4, 0, Math.PI * 2); ctx.fill();
 }
 
-function drawKite(kite, now) {
+function drawKite(kite, now, playerCount) {
   const age = now - kite.fallAt;
   const falling = !kite.alive;
+  const npc = kite.npc === true;
   if (falling && age > 1700) return;
   const x = kite.x + (falling ? Math.sin(age * .016) * 23 : 0);
   const y = kite.y + (falling ? age * .15 : 0);
   const alpha = falling ? 1 - age / 1700 : 1;
   const beat = now - kite.lastHitAt < 500 ? 1.18 : 1;
-  const rotation = Math.sin(now * .0018 + kite.slot) * .1 + (falling ? age * .002 : 0);
-  ctx.save(); ctx.globalAlpha = Math.max(0, alpha);
-  if (!falling) {
-    ctx.strokeStyle = kite.attack && !kite.attack.resolved ? "#fff7c5" : "#f5ffffd6";
-    ctx.lineWidth = kite.attack && !kite.attack.resolved ? 2.4 : 1.2;
-    ctx.shadowColor = kite.attack ? "#ffec80" : "#fff";
-    ctx.shadowBlur = kite.attack ? 12 : 4;
-    ctx.beginPath(); ctx.moveTo(kite.anchorX, 728); ctx.lineTo(x, y); ctx.stroke();
-    ctx.shadowBlur = 0;
+  const attacking = Boolean(kite.attack && !kite.attack.resolved);
+  const highlighted = attacking || now - kite.lastHitAt < 850;
+  const detail = playerCount > 300 ? 3 : playerCount > 90 ? 2 : playerCount > 24 ? 1 : 0;
+  // At high participation, only active cuts expose their strings. All 1,000
+  // kites remain in the simulation; labels and shadows would obscure the sky.
+  if (!falling && (detail === 0 || (detail === 1 && (npc || highlighted)) || attacking)) {
+    ctx.strokeStyle = attacking ? "#fff7c5" : npc ? "#ffe8aacc" : "#f5ffffd6";
+    ctx.lineWidth = attacking ? 2.2 : detail === 0 ? 1.2 : 1;
+    ctx.beginPath(); ctx.moveTo(kite.anchorX, kite.anchorY ?? 728); ctx.lineTo(x, y); ctx.stroke();
   }
-  ctx.translate(x, y); ctx.rotate(rotation); ctx.scale(beat, beat);
-  ctx.shadowColor = kite.color; ctx.shadowBlur = 17;
-  ctx.fillStyle = kite.color; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+
+  if (detail >= 2) {
+    const radius = npc ? 6 : detail === 3 ? 3 : 5;
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.fillStyle = kite.color;
+    ctx.beginPath(); ctx.moveTo(x, y - radius); ctx.lineTo(x + radius, y);
+    ctx.lineTo(x, y + radius); ctx.lineTo(x - radius, y); ctx.closePath(); ctx.fill();
+    if (highlighted) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke(); }
+    if (!falling) {
+      ctx.fillStyle = "#173048"; ctx.fillRect(x - radius, y - radius - 4, radius * 2, 2);
+      ctx.fillStyle = kite.hp <= 25 ? "#ff4d5b" : kite.hp <= 50 ? "#ffc44b" : "#62e6a4";
+      ctx.fillRect(x - radius, y - radius - 4, radius * 2 * kite.hp / engine.rules.health, 2);
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  const rotation = Math.sin(now * .0018 + kite.slot) * .1 + (falling ? age * .002 : 0);
+  const scale = beat * (npc ? .9 : 1) * (detail === 1 ? .62 : 1);
+  ctx.save(); ctx.globalAlpha = Math.max(0, alpha);
+  ctx.translate(x, y); ctx.rotate(rotation); ctx.scale(scale, scale);
+  ctx.shadowColor = kite.color; ctx.shadowBlur = detail === 0 ? 17 : 0;
+  ctx.fillStyle = kite.color; ctx.strokeStyle = npc ? "#ffeba5" : "#fff"; ctx.lineWidth = npc ? 2.5 : 2;
   ctx.beginPath(); ctx.moveTo(0, -27); ctx.lineTo(22, 0); ctx.lineTo(0, 29); ctx.lineTo(-22, 0); ctx.closePath();
   ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
   ctx.strokeStyle = "#ffffffab"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(0, 28); ctx.moveTo(-21, 0); ctx.lineTo(21, 0); ctx.stroke();
   ctx.fillStyle = "#fff8d6"; ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = kite.color; ctx.lineWidth = 2.3;
-  ctx.beginPath(); ctx.moveTo(0, 27); ctx.quadraticCurveTo(-13, 42, 3, 56); ctx.quadraticCurveTo(17, 65, 3, 78); ctx.stroke();
+  if (detail === 0 || highlighted) {
+    ctx.strokeStyle = kite.color; ctx.lineWidth = 2.3;
+    ctx.beginPath(); ctx.moveTo(0, 27); ctx.quadraticCurveTo(-13, 42, 3, 56); ctx.quadraticCurveTo(17, 65, 3, 78); ctx.stroke();
+  }
   ctx.restore();
   if (falling) return;
-  const label = kite.name.length > 14 ? `${kite.name.slice(0, 13)}…` : kite.name;
-  ctx.font = "800 11px Inter, Arial, sans-serif";
-  const labelW = Math.min(110, ctx.measureText(label).width + 18);
-  ctx.fillStyle = "#0d294acb";
-  ctx.beginPath(); ctx.roundRect(x - labelW / 2, y - 63, labelW, 19, 9); ctx.fill();
-  ctx.strokeStyle = `${kite.color}cc`; ctx.lineWidth = 1; ctx.stroke();
-  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
-  ctx.fillText(label, x, y - 53);
+
+  if (!npc && (detail === 0 || highlighted)) {
+    const label = kite.name.length > 14 ? `${kite.name.slice(0, 13)}…` : kite.name;
+    ctx.font = "800 11px Inter, Arial, sans-serif";
+    const labelW = Math.min(110, ctx.measureText(label).width + 18);
+    ctx.fillStyle = "#0d294acb";
+    ctx.beginPath(); ctx.roundRect(x - labelW / 2, y - 63, labelW, 19, 9); ctx.fill();
+    ctx.strokeStyle = `${kite.color}cc`; ctx.lineWidth = 1; ctx.stroke();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
+    ctx.fillText(label, x, y - 53);
+  }
+  const barWidth = detail === 1 ? 27 : npc ? 42 : 52;
+  const barY = detail === 1 ? y - 24 : y - 40;
   ctx.fillStyle = "#112a41d9";
-  ctx.beginPath(); ctx.roundRect(x - 26, y - 40, 52, 5, 3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x - barWidth / 2, barY, barWidth, 5, 3); ctx.fill();
   ctx.fillStyle = kite.hp <= 25 ? "#ff4d5b" : kite.hp <= 50 ? "#ffc44b" : "#62e6a4";
-  ctx.beginPath(); ctx.roundRect(x - 26, y - 40, 52 * kite.hp / engine.rules.health, 5, 3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x - barWidth / 2, barY, barWidth * kite.hp / engine.rules.health, 5, 3); ctx.fill();
 }
 
 function burst(x, y, color, count) {
@@ -315,11 +346,13 @@ function processEvents(events) {
     if (event.type === "cut") {
       burst(event.x, event.y, "#fff1a0", 42);
       burst(event.x, event.y, "#ff5c7f", 22);
-      announce(`✂ ${event.name} cortou ${event.target}!`, true);
+      const attacker = event.attackerNpc ? "Uma pipa rival" : event.name;
+      const target = event.targetNpc ? "uma pipa rival" : event.target;
+      announce(`✂ ${attacker} cortou ${target}!`, true);
     }
     if (event.type === "hit") {
-      const intensity = event.kind === "special" ? 54 : event.kind === "gift" ? 23 : event.units >= 60 ? 30 : event.units >= 30 ? 18 : 8;
-      burst(event.x, event.y, event.kind === "like" ? "#ff6f9b" : "#ffdf80", intensity);
+      const intensity = event.kind === "special" ? 54 : event.kind === "gift" ? 23 : event.kind === "npc" ? 10 : event.units >= 60 ? 30 : event.units >= 30 ? 18 : 8;
+      burst(event.x, event.y, event.kind === "npc" ? "#a2e9ff" : event.kind === "like" ? "#ff6f9b" : "#ffdf80", intensity);
     }
     if (event.type === "skyGift") {
       burst(225, 300, event.kind === "special" ? "#ffe174" : "#ff77a8", event.kind === "special" ? 75 : 42);
@@ -372,9 +405,13 @@ function frame(now) {
   engine.tick(gameNow);
   processEvents(engine.drainEvents());
   drawSky(now / 1000);
-  const currentKites = engine.kites.filter((kite) => kite.alive || gameNow - kite.fallAt < 1700);
-  // Draw lines first so the diamond sprites always remain above the cords.
-  for (const kite of currentKites) drawKite(kite, gameNow);
+  const playerCount = engine.kites.length;
+  for (const kite of engine.npcs || []) {
+    if (kite.alive || gameNow - kite.fallAt < 1700) drawKite(kite, gameNow, playerCount);
+  }
+  for (const kite of engine.kites) {
+    if (kite.alive || gameNow - kite.fallAt < 1700) drawKite(kite, gameNow, playerCount);
+  }
   drawParticles();
   if (lastHud + 125 < now) { renderHud(); lastHud = now; }
   if (noticeUntil && now > noticeUntil) { announcer.classList.remove("show"); noticeUntil = 0; }

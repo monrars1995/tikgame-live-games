@@ -2,15 +2,17 @@
 export const KITE_RULES = Object.freeze({
   width: 450,
   height: 800,
-  maxKites: 12,
-  maxQueue: 120,
-  maxPilots: 500,
+  maxKites: 1000,
+  maxQueue: 1000,
+  maxPilots: 3000,
   health: 100,
   lobbyMs: 8000,
   roundMs: 60000,
   resultsMs: 7000,
   roseDamage: 25,
   likeDamage: 0.55,
+  npcDamage: 2,
+  npcAttackMs: 6200,
   cutBonus: 100,
   trophyBonus: 300,
 });
@@ -43,6 +45,17 @@ function hash(value) {
   return result >>> 0;
 }
 
+function halton(index, base) {
+  let fraction = 1;
+  let result = 0;
+  while (index > 0) {
+    fraction /= base;
+    result += fraction * (index % base);
+    index = Math.floor(index / base);
+  }
+  return result;
+}
+
 function viewerFrom(event) {
   const user = event?.user || event || {};
   const id = String(user.uniqueId || user.displayId || user.userId || user.id || "").replace(/^@/, "").trim().toLowerCase();
@@ -61,11 +74,14 @@ export class KiteEngine {
     this.deadline = 0;
     this.round = 1;
     this.kites = [];
+    this.kiteById = new Map();
+    this.aliveHumans = 0;
+    this.npcs = this._makeNPCs();
     this.queue = [];
+    this.queuedById = new Map();
     this.pilots = new Map();
     this.events = [];
     this.winner = null;
-    this.nextSerial = 0;
     this.lastTick = this.clock();
   }
 
@@ -112,33 +128,78 @@ export class KiteEngine {
 
   _makeKite(user) {
     const slot = this.kites.length;
-    const anchorX = 36 + slot * (378 / Math.max(1, this.rules.maxKites - 1));
+    // Keep the small-room choreography intact; later admissions fill the sky
+    // using a low-discrepancy 2D sequence instead of stacking in four rows.
+    const smallField = Math.min(this.rules.maxKites, 12);
+    const early = slot < smallField;
+    const baseX = early ? 36 + slot * (378 / Math.max(1, smallField - 1))
+      : 28 + halton(slot - smallField + 1, 2) * (this.rules.width - 56);
+    const baseY = early ? 300 + (slot % 4) * 55
+      : 190 + halton(slot - smallField + 1, 3) * 320;
+    const anchorX = baseX;
+    const anchorY = early ? 728 : 645 + halton(slot - smallField + 1, 5) * 85;
     const seed = hash(user.id);
     const kite = {
       id: user.id, name: user.name, avatar: user.avatar,
       color: KITE_PALETTE[seed % KITE_PALETTE.length],
-      hp: this.rules.health, alive: true, slot, anchorX, seed,
-      x: anchorX, y: 330 + (slot % 4) * 55,
+      hp: this.rules.health, alive: true, slot, anchorX, anchorY, baseX, baseY, seed,
+      x: baseX, y: baseY,
       pressure: clamp(this.pilots.get(user.id)?.pending || 0, 0, 5000),
       reserveKind: this.pilots.get(user.id)?.pending ? this.pilots.get(user.id)?.pendingKind : "like",
       reserveUnits: this.pilots.get(user.id)?.pendingUnits || 0,
       attack: null, lastHitAt: 0, fallAt: 0,
     };
     this.kites.push(kite);
+    this.kiteById.set(kite.id, kite);
+    this.aliveHumans++;
     const pilot = this.pilots.get(user.id);
     if (pilot) { pilot.pending = 0; pilot.pendingUnits = 0; pilot.pendingKind = "like"; }
     this._emit("join", { id: kite.id, name: kite.name, x: kite.x, y: kite.y });
     return kite;
   }
 
+  _makeNPCs() {
+    const names = ["NPC Brisa", "NPC Rajada", "NPC Trovão"];
+    const colors = ["#a9f5ff", "#fbe784", "#daacff"];
+    const smallField = Math.min(this.rules.maxKites, 12);
+    const humanAnchors = Array.from({ length: smallField }, (_, slot) =>
+      36 + slot * (378 / Math.max(1, smallField - 1)));
+    const anchors = [];
+    return names.map((name, index) => {
+      // Give bot strings their own ground points, between possible human lines.
+      const ideal = this.rules.width * (index + 1) / 4;
+      let anchorX = ideal;
+      let best = -Infinity;
+      for (let candidate = 42; candidate <= this.rules.width - 42; candidate += 2) {
+        const humanGap = Math.min(...humanAnchors.map((x) => Math.abs(x - candidate)));
+        const botGap = anchors.length ? Math.min(...anchors.map((x) => Math.abs(x - candidate))) : 100;
+        const score = Math.min(humanGap, 28) * 2 - Math.abs(candidate - ideal) * .18
+          - Math.max(0, 65 - botGap) * 3;
+        if (score > best) { best = score; anchorX = candidate; }
+      }
+      anchors.push(anchorX);
+      const id = `npc:sky-${index + 1}`;
+      const slot = this.rules.maxKites + index;
+      return {
+        id, name, npc: true, avatar: "", color: colors[index],
+        hp: this.rules.health, alive: true, slot, anchorX, anchorY: 728,
+        baseX: anchorX, baseY: 300 + (slot % 4) * 55,
+        seed: hash(`${id}:${this.round}`),
+        x: anchorX, y: 300 + (slot % 4) * 55,
+        pressure: 0, reserveKind: "like", reserveUnits: 0,
+        attack: null, lastHitAt: 0, fallAt: 0, nextAttackAt: 0,
+      };
+    });
+  }
+
   join(user) {
     if (!user?.id) return null;
-    const existing = this.kites.find((kite) => kite.id === user.id);
+    const existing = this.kiteById.get(user.id);
     if (this.phase !== "results" && existing?.alive) {
       this._pilot(user);
       return existing;
     }
-    const queued = this.queue.find((pilot) => pilot.id === user.id);
+    const queued = this.queuedById.get(user.id);
     if (queued) { this._pilot(user); return null; }
     const needsQueue = this.phase === "results" || Boolean(existing) || this.kites.length >= this.rules.maxKites;
     if (needsQueue && this.queue.length >= this.rules.maxQueue) return null;
@@ -146,6 +207,7 @@ export class KiteEngine {
     if (!pilot) return null;
     if (needsQueue) {
       this.queue.push(pilot);
+      this.queuedById.set(pilot.id, pilot);
       this._emit("queue", { name: pilot.name, position: this.queue.length });
       return null;
     }
@@ -163,10 +225,26 @@ export class KiteEngine {
   }
 
   _chooseTarget(attacker) {
-    const rivals = this.active.filter((kite) => kite.id !== attacker.id);
-    if (!rivals.length) return null;
-    rivals.sort((a, b) => Math.abs(a.anchorX - attacker.anchorX) - Math.abs(b.anchorX - attacker.anchorX) || a.hp - b.hp);
-    return rivals[0];
+    // Live viewers fight each other first. Bots provide combat when a viewer
+    // is alone, while their own light attacks can only target real viewers.
+    const rivals = attacker.npc || this.aliveHumans > 1 ? this.kites : this.npcs;
+    let target = null;
+    let bestParallel = 1;
+    let bestDistance = Infinity;
+    for (const candidate of rivals) {
+      if (!candidate.alive || candidate.id === attacker.id) continue;
+      const horizontal = Math.abs(candidate.anchorX - attacker.anchorX);
+      // Parallel strings cannot intersect. Prefer a line with useful spacing.
+      const parallel = horizontal < 28 ? 1 : 0;
+      const distance = horizontal + Math.abs(candidate.y - attacker.y) * .28;
+      if (!target || parallel < bestParallel || (parallel === bestParallel
+        && (distance < bestDistance || (distance === bestDistance && candidate.hp < target.hp)))) {
+        target = candidate;
+        bestParallel = parallel;
+        bestDistance = distance;
+      }
+    }
+    return target;
   }
 
   _attack(kite, damage, kind, units = 1) {
@@ -189,12 +267,14 @@ export class KiteEngine {
       return;
     }
     const now = this.clock();
+    const impact = now + 640;
     const direction = kite.anchorX < target.anchorX ? 1 : -1;
+    const reach = 58;
     kite.attack = {
       targetId: target.id, kind, units,
-      damage: total, started: now, impact: now + 640, end: now + 1120,
+      damage: total, started: now, impact, end: now + 1120,
       fromX: kite.x, fromY: kite.y,
-      crossX: clamp(target.x + direction * 58, 22, this.rules.width - 22),
+      crossX: clamp(target.x + direction * reach, 22, this.rules.width - 22),
       crossY: target.y,
       resolved: false,
     };
@@ -204,8 +284,8 @@ export class KiteEngine {
   like(event) {
     if (this.phase === "results") return false;
     const user = viewerFrom(event);
-    const kite = user && this.kites.find((item) => item.id === user.id && item.alive);
-    if (!kite) return false;
+    const kite = user && this.kiteById.get(user.id);
+    if (!kite?.alive) return false;
     const raw = Math.floor(finite(event?.likeCount ?? event?.count, 1));
     if (raw <= 0) return false;
     const count = clamp(raw, 1, 100);
@@ -225,22 +305,26 @@ export class KiteEngine {
     let kite = this.join(user); // Paid interaction also admits a new player.
     let displaced = null;
     let displacedIndex = -1;
-    if (!kite && !this.queue.some((pilot) => pilot.id === user.id) && this.queue.length >= this.rules.maxQueue) {
+    if (!kite && !this.queuedById.has(user.id) && this.queue.length >= this.rules.maxQueue) {
       // Reserve a seat for a gift ahead of the last chat-only pilot. Do not
       // displace someone who has already paid to join the next round.
       const chatOnly = this.queue.findLastIndex((pilot) => pilot.pending === 0);
       if (chatOnly >= 0) {
         displacedIndex = chatOnly;
         displaced = this.queue.splice(chatOnly, 1)[0];
+        this.queuedById.delete(displaced.id);
         kite = this.join(user);
       }
     }
     if (!kite) {
       // When every seat is already backed by a gift, give the new present a
       // bounded on-screen sky effect instead of silently dropping it.
-      const pilot = this.queue.find((queued) => queued.id === user.id);
+      const pilot = this.queuedById.get(user.id);
       if (!pilot) {
-        if (displaced) this.queue.splice(displacedIndex, 0, displaced);
+        if (displaced) {
+          this.queue.splice(displacedIndex, 0, displaced);
+          this.queuedById.set(displaced.id, displaced);
+        }
         this._emit("skyGift", { id: user.id, name: user.name, kind, units: count, coins });
         return true;
       }
@@ -254,37 +338,44 @@ export class KiteEngine {
     return true;
   }
 
-  _basePose(kite, now) {
+  _basePose(kite, now, out = {}) {
     const t = now / 1000;
-    return {
-      x: clamp(kite.anchorX + Math.sin(t * 0.8 + kite.seed) * 20 + Math.sin(t * 1.7 + kite.slot) * 6, 23, this.rules.width - 23),
-      y: 300 + (kite.slot % 4) * 55 + Math.cos(t * 0.7 + kite.slot * 1.8) * 23 + Math.sin(t * 1.8 + kite.seed) * 8,
-    };
+    const crowded = kite.slot >= 12 && !kite.npc;
+    out.x = clamp(kite.baseX + Math.sin(t * 0.8 + kite.seed) * (crowded ? 5 : 20)
+      + Math.sin(t * 1.7 + kite.slot) * (crowded ? 2 : 6), 23, this.rules.width - 23);
+    out.y = kite.baseY + Math.cos(t * 0.7 + kite.slot * 1.8) * (crowded ? 6 : 23)
+      + Math.sin(t * 1.8 + kite.seed) * (crowded ? 3 : 8);
+    return out;
   }
 
-  _pose(kite, now) {
-    const base = this._basePose(kite, now);
+  _pose(kite, now, out = {}) {
+    const base = this._basePose(kite, now, out);
     const attack = kite.attack;
     if (!attack) return base;
     if (now <= attack.impact) {
       const t = ease((now - attack.started) / (attack.impact - attack.started));
-      return { x: mix(attack.fromX, attack.crossX, t), y: mix(attack.fromY, attack.crossY, t) };
+      out.x = mix(attack.fromX, attack.crossX, t);
+      out.y = mix(attack.fromY, attack.crossY, t);
+      return out;
     }
     const t = ease((now - attack.impact) / (attack.end - attack.impact));
-    return { x: mix(attack.crossX, base.x, t), y: mix(attack.crossY, base.y, t) };
+    out.x = mix(attack.crossX, base.x, t);
+    out.y = mix(attack.crossY, base.y, t);
+    return out;
   }
 
   _resolve(kite, attack, now) {
     if (this.phase !== "active") return;
     attack.resolved = true;
-    const target = this.kites.find((item) => item.id === attack.targetId && item.alive);
-    if (!target) return;
+    const target = this.kiteById.get(attack.targetId)
+      || this.npcs.find((item) => item.id === attack.targetId);
+    if (!target?.alive) return;
     // Use the planned impact instant even if the browser skipped frames in a background tab.
     const blade = this._pose(kite, attack.impact);
     const victim = this._pose(target, attack.impact);
     const crossing = segmentsIntersect(
-      { x: kite.anchorX, y: 728 }, blade,
-      { x: target.anchorX, y: 728 }, victim,
+      { x: kite.anchorX, y: kite.anchorY ?? 728 }, blade,
+      { x: target.anchorX, y: target.anchorY ?? 728 }, victim,
     );
     if (!crossing) {
       this._emit("miss", { name: kite.name, target: target.name, x: blade.x, y: blade.y });
@@ -298,10 +389,17 @@ export class KiteEngine {
     this._emit("hit", { id: kite.id, name: kite.name, target: target.name, damage: hit, x: (blade.x + victim.x) / 2, y: (blade.y + victim.y) / 2, kind: attack.kind, units: attack.units });
     if (target.hp === 0) {
       target.alive = false;
+      if (!target.npc) this.aliveHumans--;
       target.fallAt = now;
       if (pilot) { pilot.cuts += 1; pilot.score += this.rules.cutBonus; }
-      this._emit("cut", { id: kite.id, name: kite.name, target: target.name, x: victim.x, y: victim.y, kind: attack.kind });
-      if (this.phase === "active" && this.active.length <= 1 && this.kites.length > 1) this._finish(now);
+      this._emit("cut", { id: kite.id, name: kite.name, target: target.name,
+        attackerNpc: Boolean(kite.npc), targetNpc: Boolean(target.npc),
+        x: victim.x, y: victim.y, kind: attack.kind });
+      if (this.phase === "active" && (
+        this.aliveHumans === 0 ||
+        (this.aliveHumans === 1 && this.kites.length > 1) ||
+        (this.aliveHumans === 1 && this.npcs.every((npc) => !npc.alive))
+      )) this._finish(now);
     }
   }
 
@@ -323,9 +421,16 @@ export class KiteEngine {
       kite.pressure = 0;
       kite.attack = null;
     }
-    const survivors = this.active;
-    survivors.sort((a, b) => b.hp - a.hp || (this.pilots.get(b.id)?.score || 0) - (this.pilots.get(a.id)?.score || 0));
-    this.winner = survivors[0] || null;
+    for (const npc of this.npcs) npc.attack = null;
+    this.winner = null;
+    for (const kite of this.kites) {
+      if (!kite.alive) continue;
+      const score = this.pilots.get(kite.id)?.score || 0;
+      const currentScore = this.winner ? this.pilots.get(this.winner.id)?.score || 0 : -1;
+      if (!this.winner || kite.hp > this.winner.hp || (kite.hp === this.winner.hp && score > currentScore)) {
+        this.winner = kite;
+      }
+    }
     if (this.winner) {
       const pilot = this.pilots.get(this.winner.id);
       pilot.trophies += 1;
@@ -337,14 +442,23 @@ export class KiteEngine {
   }
 
   _nextRound(now) {
-    const old = this.active.map((kite) => this.pilots.get(kite.id)).filter(Boolean);
+    const old = [];
+    for (const kite of this.kites) {
+      if (kite.alive) old.push(this.pilots.get(kite.id));
+    }
     this.round += 1;
     this.kites = [];
+    this.kiteById.clear();
+    this.aliveHumans = 0;
+    this.npcs = this._makeNPCs();
     this.winner = null;
     this.phase = "waiting";
     this.deadline = 0;
     const waiting = this.queue.splice(0, this.rules.maxKites);
-    for (const pilot of waiting) this.join(pilot);
+    for (const pilot of waiting) {
+      this.queuedById.delete(pilot.id);
+      this.join(pilot);
+    }
     for (const pilot of old) {
       if (this.kites.length >= this.rules.maxKites) break;
       this.join(pilot);
@@ -354,9 +468,9 @@ export class KiteEngine {
   }
 
   _releaseReserves() {
-    if (this.phase !== "active" || this.active.length < 2) return;
-    for (const kite of this.active) {
-      if (kite.pressure <= 0 || kite.attack) continue;
+    if (this.phase !== "active" || (this.aliveHumans < 2 && !this.npcs.some((npc) => npc.alive))) return;
+    for (const kite of this.kites) {
+      if (!kite.alive || kite.pressure <= 0 || kite.attack) continue;
       const kind = kite.reserveKind;
       const units = kite.reserveUnits || 1;
       kite.reserveKind = "like";
@@ -370,16 +484,34 @@ export class KiteEngine {
     if (this.phase === "lobby" && now >= this.deadline) {
       this.phase = "active";
       this.deadline = now + this.rules.roundMs;
+      for (let index = 0; index < this.npcs.length; index++) {
+        this.npcs[index].nextAttackAt = now + this.rules.npcAttackMs + index * 700;
+      }
       this._emit("phase", { phase: this.phase });
     }
     for (const kite of this.kites) {
       if (!kite.alive) continue;
-      const pose = this._pose(kite, now);
-      kite.x = pose.x;
-      kite.y = pose.y;
+      this._pose(kite, now, kite);
+    }
+    for (const kite of this.npcs) {
+      if (!kite.alive) continue;
+      this._pose(kite, now, kite);
     }
     if (this.phase === "active" && now < this.deadline) this._releaseReserves();
+    if (this.phase === "active" && now < this.deadline && this.aliveHumans > 0) {
+      for (const npc of this.npcs) {
+        if (!npc.alive || npc.attack || now < npc.nextAttackAt) continue;
+        npc.nextAttackAt = now + this.rules.npcAttackMs;
+        this._attack(npc, this.rules.npcDamage, "npc");
+      }
+    }
     for (const kite of this.kites) {
+      if (this.phase !== "active" || !kite.alive || !kite.attack) continue;
+      const attack = kite.attack;
+      if (!attack.resolved && now >= attack.impact && attack.impact <= this.deadline) this._resolve(kite, attack, now);
+      if (now >= attack.end) kite.attack = null;
+    }
+    for (const kite of this.npcs) {
       if (this.phase !== "active" || !kite.alive || !kite.attack) continue;
       const attack = kite.attack;
       if (!attack.resolved && now >= attack.impact && attack.impact <= this.deadline) this._resolve(kite, attack, now);
