@@ -12,10 +12,12 @@
  * @returns {{uniqueId: string, nickname: string, profilePictureUrl: string}}
  */
 export function normalizeUser(raw) {
+	const user = raw?.user || raw || {};
+	const uniqueId = String(user.displayId || user.uniqueId || raw?.uniqueId || user.userId || "").trim();
 	return {
-		uniqueId: raw.uniqueId || "",
-		nickname: raw.nickname || raw.uniqueId || "Anonymous",
-		profilePictureUrl: raw.profilePictureUrl || "",
+		uniqueId,
+		nickname: String(user.nickname || raw?.nickname || uniqueId || "Participante"),
+		profilePictureUrl: String(user.profilePictureUrl || user.avatarThumb?.urlList?.[0] || raw?.profilePictureUrl || ""),
 	};
 }
 
@@ -27,7 +29,7 @@ export function normalizeUser(raw) {
 export function normalizeChat(raw) {
 	return {
 		user: normalizeUser(raw),
-		comment: (raw.comment || "").toLowerCase().trim(),
+		comment: String(raw?.comment ?? raw?.content ?? "").trim().slice(0, 200),
 		timestamp: Date.now(),
 	};
 }
@@ -40,8 +42,8 @@ export function normalizeChat(raw) {
 export function normalizeLike(raw) {
 	return {
 		user: normalizeUser(raw),
-		likeCount: raw.likeCount || 0,
-		totalLikeCount: raw.totalLikeCount || 0,
+		likeCount: Math.max(0, Number(raw?.count ?? raw?.likeCount) || 0),
+		totalLikeCount: Math.max(0, Number(raw?.totalLikeCount) || 0),
 		timestamp: Date.now(),
 	};
 }
@@ -77,13 +79,32 @@ export function categorizeGift(value) {
  * @returns {{user: Object, giftId: number, giftName: string, giftValue: number, repeatCount: number, giftType: string, timestamp: number}}
  */
 export function normalizeGift(raw) {
-	const giftValue = raw.diamondCount || raw.giftValue || 1;
+	const gift = raw?.gift || {};
+	const details = raw?.giftDetails || {};
+	const extended = raw?.extendedGiftInfo || {};
+	let extra = raw?.monitorExtra || {};
+	if (typeof extra === "string") {
+		try { extra = JSON.parse(extra); } catch { extra = {}; }
+	}
+	const giftValue = [
+		raw?.diamondCount,
+		details.diamondCount,
+		gift.diamondCount,
+		gift.diamond_count,
+		extended.diamond_count,
+		raw?.giftValue,
+	].map(Number).find((value) => Number.isFinite(value) && value > 0) ?? 1;
+	const repeatCount = Math.max(1, Number(raw?.repeatCount ?? gift.repeat_count ?? 1) || 1);
 	return {
 		user: normalizeUser(raw),
-		giftId: raw.giftId || 0,
-		giftName: raw.giftName || raw.giftDetails?.giftName || "Unknown Gift",
+		giftId: raw?.giftId || gift.id || details.id || gift.gift_id || 0,
+		giftName: String(raw?.giftName || details.giftName || gift.name || extended.name || "Presente"),
 		giftValue,
-		repeatCount: raw.repeatCount || 1,
+		repeatCount,
+		repeatEnd: raw?.repeatEnd === true || raw?.repeatEnd === 1 || raw?.repeatEnd === "1" || gift.repeat_end === 1,
+		isCombo: Number(raw?.giftType ?? details.giftType ?? gift.type ?? gift.gift_type ?? 0) === 1 || gift.combo === true,
+		comboId: String(raw?.groupId || extra?.group_id || ""),
+		messageId: String(raw?.msgId || raw?.common?.msgId || raw?.logId || ""),
 		giftType: categorizeGift(giftValue),
 		timestamp: Date.now(),
 	};

@@ -1,162 +1,102 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TikTok Live Games - Interactive Overlay Platform</title>
     <meta
       name="description"
-      content="Create game overlays for your TikTok Live. Increase viewer engagement with real-time mini-games."
+      content="Crie sua arena de corrida para a live: o chat escolhe os cavalos e presentes aceleram a disputa."
     />
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code&display=swap"
-      rel="stylesheet"
-    />
-
-    <!-- Styles -->
+    <meta name="theme-color" content="#111017" />
+    <title>TikGame · Corrida do Povo</title>
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
-    <!-- ==========================================
-         HEADER
-         ========================================== -->
-    <header class="header">
-      <div class="container">
-        <div class="header-content">
-          <a href="/" class="logo">
-            <div class="logo-icon">🎮</div>
-            <span>TikTok Live Games</span>
-          </a>
-          <nav class="nav-links">
-            <a href="#games" class="nav-link">Games</a>
-            <a href="/debug.html" class="nav-link">Debug</a>
-            <a href="/api/stats" class="nav-link" target="_blank">Stats</a>
-          </nav>
-        </div>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/" aria-label="TikGame, início">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" focusable="false">
+              <path d="M25 2 7 26h13l-3 20 24-29H27l3-15Z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="brand-word">TIK<span>GAME</span><small>by Gold Neuron</small></span>
+        </a>
+        <nav class="header-links" aria-label="Navegação">
+          <a href="#como-jogar">Como jogar</a>
+          <a href="/debug.html">Monitor de eventos</a>
+        </nav>
       </div>
     </header>
 
-    <!-- ==========================================
-         HERO SECTION
-         ========================================== -->
-    <section class="hero">
-      <div class="container">
-        <h1 class="hero-title">Create Game Overlays for TikTok Live</h1>
-        <p class="hero-subtitle">
-          Turn your livestream into an interactive experience. Viewers send gifts to play games in
-          real-time while you stream!
-        </p>
-      </div>
-    </section>
-
-    <!-- ==========================================
-         MAIN DASHBOARD CARD
-         ========================================== -->
-    <main class="container">
-      <div class="glass-card">
-        <!-- Step 1: Input Username -->
-        <div class="form-group">
-          <label for="username" class="form-label"> 📱 Your TikTok Username </label>
-          <input
-            type="text"
-            id="username"
-            class="form-input"
-            placeholder="Ex: streamer_vn (no @ needed)"
-            autocomplete="off"
-          />
+    <main>
+      <section class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="signal-dot" aria-hidden="true"></span> NOVO JOGO PARA LIVE</p>
+          <h1 id="hero-title">A torcida entra na pista.<br /><em>A corrida vira espetáculo.</em></h1>
+          <p class="hero-lead">
+            O público escolhe um cavalo pelo chat. Rosas e outros presentes aceleram a disputa;
+            curtidas dão um impulso leve. Você transmite, a comunidade joga.
+          </p>
+          <a class="hero-link" href="#montar-arena">Montar minha arena <span aria-hidden="true">↘</span></a>
         </div>
+        <div class="race-illustration" role="img" aria-label="Ilustração de cinco cavalos em pistas de corrida">
+          <div class="race-illustration-top"><span>CORRIDA DO POVO</span><span>05 PISTAS</span></div>
+          <div class="track-preview" aria-hidden="true">
+            <div class="preview-lane"><span class="lane-index">01</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+            <div class="preview-lane"><span class="lane-index">02</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+            <div class="preview-lane"><span class="lane-index">03</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+            <div class="preview-lane"><span class="lane-index">04</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+            <div class="preview-lane"><span class="lane-index">05</span><span class="runner">♞</span><span class="preview-line"></span><span class="finish">▥</span></div>
+          </div>
+          <div class="race-illustration-bottom"><span>CHAT + PRESENTES + CURTIDAS</span><span>↗</span></div>
+        </div>
+      </section>
 
-        <!-- Step 2: Select Game -->
-        <div class="form-group" id="games">
-          <label class="form-label"> 🎯 Select Game for Stream </label>
-          <div class="game-grid">
-            <!-- Horse Racing Game Card -->
-            <div
-              class="game-card selected"
-              data-game="horse-racing"
-              data-entry="index.html"
-              data-param="id"
-            >
-              <span class="game-card-badge">NEW</span>
-              <div class="game-card-icon">🏇</div>
-              <h3 class="game-card-title">Horse Racing</h3>
-              <p class="game-card-desc">
-                Viewers send gifts to move horses! Each gift powers a different lane. First horse to
-                the finish line wins!
-              </p>
-            </div>
+      <section class="setup shell" id="montar-arena" aria-labelledby="setup-title">
+        <div class="setup-heading">
+          <div><p class="eyebrow">01 / PREPARAR A LIVE</p><h2 id="setup-title">Coloque a corrida no ar</h2></div>
+          <span class="setup-note">Só funciona enquanto o perfil estiver ao vivo no TikTok</span>
+        </div>
+        <div class="setup-grid">
+          <div class="setup-card">
+            <label class="field-label" for="username">@ do perfil que está transmitindo</label>
+            <div class="input-wrap"><span aria-hidden="true">@</span><input id="username" name="username" type="text" inputmode="text" placeholder="seuusuario" autocomplete="username" spellcheck="false" aria-describedby="username-help" /></div>
+            <p class="field-help" id="username-help">Digite o ID do perfil, com ou sem @. A live precisa estar aberta.</p>
 
-            <!-- Future Expansion Placeholder -->
-            <div class="game-card" style="opacity: 0.5; cursor: not-allowed">
-              <div class="game-card-icon">🎰</div>
-              <h3 class="game-card-title">Wheel of Fortune</h3>
-              <p class="game-card-desc">
-                Coming Soon! Spin the wheel with gifts for prizes and surprises.
-              </p>
-            </div>
+            <div class="game-choice-label" id="games">Jogo disponível <span>01 / 01</span></div>
+            <button class="game-card selected" type="button" data-game="horse-racing" data-entry="index.html" data-param="id" aria-pressed="true">
+              <span class="game-icon" aria-hidden="true">♞</span>
+              <span class="game-card-copy"><strong>Corrida do Povo</strong><small>5 cavalos · chat, curtidas e presentes</small></span>
+              <span class="game-selected" aria-hidden="true">✓</span>
+            </button>
 
-            <div class="game-card" style="opacity: 0.5; cursor: not-allowed">
-              <div class="game-card-icon">🧩</div>
-              <h3 class="game-card-title">Quiz Battle</h3>
-              <p class="game-card-desc">Coming Soon! Chat-based trivia battles between viewers.</p>
+            <button class="primary-button" type="button" id="generateBtn">Gerar link da arena <span aria-hidden="true">↗</span></button>
+            <p class="form-hint">O link conecta ao TikTok quando aberto na live. Gerá-lo não inicia a transmissão.</p>
+
+            <div class="output-section" id="outputSection" aria-live="polite">
+              <label class="output-label" for="outputUrl">Link para OBS ou TikTok LIVE Studio</label>
+              <div class="output-wrapper"><input id="outputUrl" class="output-input" type="text" readonly /><button id="copyBtn" class="copy-button" type="button">Copiar</button></div>
+              <a id="openOverlay" class="open-link" href="#" target="_blank" rel="noopener noreferrer">Abrir e conferir a arena <span aria-hidden="true">↗</span></a>
             </div>
           </div>
-        </div>
 
-        <!-- Step 3: Generate Button -->
-        <div class="form-group">
-          <button type="button" id="generateBtn" class="btn btn-primary">
-            ✨ Generate Game Link
-          </button>
-        </div>
-
-        <!-- Step 4: Output Section (hidden until generated) -->
-        <div class="output-section" id="outputSection">
-          <p class="output-label">🔗 Overlay Link for OBS / TikTok Studio:</p>
-          <div class="output-wrapper">
-            <input type="text" id="outputUrl" class="output-input" readonly />
-            <button type="button" id="copyBtn" class="btn btn-copy">📋 Copy</button>
-          </div>
-          <div
-            style="
-              margin-top: 20px;
-              padding: 16px;
-              background: rgba(37, 244, 238, 0.1);
-              border-radius: 12px;
-              border-left: 4px solid var(--accent-cyan);
-            "
-          >
-            <strong style="color: var(--accent-cyan)">💡 Instructions:</strong>
-            <ol style="margin-top: 10px; margin-left: 20px; color: var(--text-secondary)">
-              <li>Copy the link above</li>
-              <li>Open OBS or TikTok Studio</li>
-              <li>Add a new Browser Source</li>
-              <li>Paste the link into the URL field</li>
-              <li>Set dimensions: 1920x1080 (or custom)</li>
-              <li>Start livestreaming — viewers send gifts to race!</li>
+          <div class="how-card" id="como-jogar">
+            <p class="eyebrow">02 / CHAMAR A TORCIDA</p>
+            <h3>Todo mundo tem um jeito de jogar.</h3>
+            <ol class="steps">
+              <li><span class="step-icon">01</span><div><strong>Comente 1–5</strong><p>Escolha seu cavalo e entre na disputa.</p></div></li>
+              <li><span class="step-icon rose">✿</span><div><strong>Envie rosas ou presentes</strong><p>Impulsione o cavalo que você escolheu.</p></div></li>
+              <li><span class="step-icon heart">♥</span><div><strong>Curta a live</strong><p>Cada sequência de curtidas dá um impulso leve.</p></div></li>
             </ol>
+            <div class="capture-tip"><span aria-hidden="true">▣</span><p><strong>Pronto para captura vertical</strong>Use o link gerado como fonte de navegador em <b>450 × 800</b> (9:16). Teste um comentário e uma rosa antes de começar.</p></div>
           </div>
         </div>
-      </div>
+      </section>
     </main>
 
-    <!-- ==========================================
-         FOOTER
-         ========================================== -->
-    <footer class="footer">
-      <div class="container">
-        <p>TikTok Live Games v2 &copy; 2026 | Made with 💖 for Streamers Worldwide</p>
-      </div>
-    </footer>
-
-    <!-- Toast Notification -->
-    <div class="toast" id="toast">✅ Link copied!</div>
-
-    <!-- Scripts -->
+    <footer class="site-footer"><div class="shell footer-inner"><span>TikGame · Gold Neuron</span><span>Feito para jogar junto, ao vivo.</span><a href="https://github.com/vamnguyen/tiktok-live-games" target="_blank" rel="noopener noreferrer">Projeto original ↗</a></div></footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/js/dashboard.js"></script>
   </body>
 </html>

@@ -1,42 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Horse Racing - TikTok Live Games</title>
+    <meta name="theme-color" content="#111017" />
+    <title>Corrida do Povo · TikGame</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- OBS Overlay: transparent background, canvas fills viewport -->
+    <canvas id="raceCanvas" aria-label="Corrida dos cinco cavalos"></canvas>
+    <main id="hud" class="arena-hud">
+      <header class="arena-header">
+        <div class="arena-brand"><span class="brand-spark" aria-hidden="true">ϟ</span><span><small>TIKGAME / GOLD NEURON</small><strong>CORRIDA DO POVO</strong></span></div>
+        <span class="arena-live-label">JOGUE NA LIVE</span>
+      </header>
 
-    <!-- Race Canvas -->
-    <canvas id="raceCanvas"></canvas>
-
-    <!-- HUD Overlay (DOM) -->
-    <div id="hud">
-      <!-- Phase Banner -->
-      <div id="phaseBanner" class="phase-banner">
-        <span id="phaseText">Waiting for gifts...</span>
+      <div id="phaseBanner" class="phase-banner" role="status" aria-live="polite">
+        <span id="phaseText">Aguardando a torcida...</span>
         <span id="phaseTimer"></span>
       </div>
 
-      <!-- Lane Labels (left side) -->
-      <div id="laneLabels"></div>
+      <div id="laneLabels" aria-label="Cavalos e progresso"></div>
 
-      <!-- Event Feed (bottom-right) -->
-      <div id="eventFeed"></div>
+      <div id="eventFeed" aria-label="Últimas interações"></div>
 
-      <!-- Winner Overlay (hidden until finish) -->
-      <div id="winnerOverlay" class="winner-overlay hidden">
+      <div class="play-prompt" aria-label="Como jogar">
+        <span><strong>COMENTE 1–5</strong> escolha seu cavalo</span>
+        <span><strong>🌹 PRESENTE</strong> acelera</span>
+        <span><strong>♥ LIKE</strong> impulso leve</span>
+      </div>
+
+      <div id="winnerOverlay" class="winner-overlay hidden" role="status" aria-live="polite">
         <div class="winner-content">
+          <p class="winner-kicker">FIM DE CORRIDA</p>
           <div id="winnerEmoji" class="winner-emoji"></div>
           <div id="winnerName" class="winner-name"></div>
           <div id="winnerSupporters" class="winner-supporters"></div>
+          <p class="winner-footer">A PRÓXIMA DISPUTA JÁ VEM AÍ</p>
         </div>
       </div>
-    </div>
+    </main>
 
-    <!-- Dependencies -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="/lib/tiktok-bridge.js"></script>
     <script src="config.js"></script>

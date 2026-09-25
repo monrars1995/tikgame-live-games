@@ -1,67 +1,27 @@
-# TikTok Live Games
+# TikGame Live Games · Corrida do Povo
 
-TikTok Live overlay platform — viewers send gifts to play games during livestreams.
-Express + Socket.io server, multi-tenant (1 room per streamer).
+Fork de `vamnguyen/tiktok-live-games` para lives TikTok em português. Execute este projeto no checkout `tikgame-live-games`; ele é separado do `tikgame-live` local.
 
-## Structure
+## Estrutura
 
-```
-src/
-├── server.js              # Express + Socket.io entry (port 3000)
-├── lib/
-│   ├── tiktokEventNormalizer.js  # Pure normalization functions for TikTok events
-│   └── tiktokReconnectPolicy.js  # Exponential backoff reconnect helpers
-└── services/
-    └── TikTokService.js   # Singleton: TikTok Live connections, event forwarding, auto-reconnect
-public/
-├── index.html             # Dashboard: username input → overlay URL generator
-├── debug.html             # Event debugger: shows all TikTok events with giftId/value
-├── css/styles.css
-├── js/dashboard.js        # Game selection, URL generation, clipboard
-├── lib/tiktok-bridge.js   # Client SDK: Socket.io → game event bridge
-└── games/
-    └── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
-```
+- `src/server.js`: servidor Express e salas Socket.io por streamer.
+- `src/services/TikTokService.js`: conexão compartilhada, retry e limpeza.
+- `src/lib/tiktokEventNormalizer.js`: contrato de chat, curtida, presente e compartilhamento.
+- `public/lib/tiktok-bridge.js`: cliente do Socket.io consumido pelos jogos.
+- `public/games/horse-racing/`: configuração, motor de corrida, Canvas e HUD.
+- `public/index.html`: dashboard; `public/debug.html`: monitor de eventos.
+- `tests/`: verificações de conexão, bridge, normalização e regras do jogo.
 
-## Tech Stack
+## Ambiente e comandos
 
-- **Runtime:** Node.js >= 18 (ES Modules, `"type": "module"`)
-- **Server:** Express 4.18 + Socket.io 4.7
-- **TikTok:** tiktok-live-connector 1.1.9 (WebcastPushConnection)
-- **Games:** Vanilla Canvas 2D + DOM HUD (horse-racing)
-- **Package manager:** npm
+Node.js 20+, npm, `npm ci`, `npm test`, `PORT=3100 npm start`. O servidor escuta em `127.0.0.1` por padrão. A versão é definida em `package.json` e deve corresponder à tag Git.
 
-## Commands
+## Regras de interação
 
-```bash
-npm start        # node src/server.js (production)
-npm run dev      # node --watch src/server.js (dev, auto-reload)
-```
+Um comentário escolhe o cavalo por 1–5 ou nome; qualquer outro texto distribui o usuário. A escolha fica fixa até a próxima corrida. Curtidas são fracas; presentes aceleram conforme moedas; combos cumulativos contam apenas novas unidades. O primeiro a chegar vence ou, ao expirar o tempo, o mais avançado.
 
-## Data Flow
+## Limites de alteração
 
-```
-TikTok Live → tiktok-live-connector → TikTokService.js → Socket.io rooms → tiktok-bridge.js → Game
-```
+Preserve os nomes de evento `tiktok_chat`, `tiktok_gift`, `tiktok_like`, `tiktok_share` e a API pública do bridge. Não versione `.env` nem `node_modules`. Execute `npm test`, `npm audit --omit=dev` e revisão visual em 450 × 800 antes de marcar uma versão. Testes locais não provam entrega de eventos de uma live real.
 
-Events: `tiktok_chat`, `tiktok_gift`, `tiktok_like`, `tiktok_share`, `tiktok_connected`, `tiktok_disconnected`, `tiktok_reconnecting`, `tiktok_error`.
-
-## Key Patterns
-
-- **Multi-tenant isolation:** Room ID = TikTok username. `io.to(username).emit()` ensures data isolation.
-- **Singleton service:** `TikTokService` reuses connections; auto-disconnects after 5min with 0 clients; auto-reconnects with exponential backoff.
-- **Client SDK:** `tiktok-bridge.js` auto-connects from URL params (`?id=` or `?username=`). Events: chat, gift, like, share, connected, disconnected, reconnecting, error.
-- **Event normalizer:** `src/lib/tiktokEventNormalizer.js` — all raw TikTok data is normalized before emission. Gifts include `giftId`.
-- **Gift categorization:** small (<10 diamonds), medium (10-99), large (100+).
-
-## Adding a New Game
-
-1. Create `public/games/{name}/` with entry HTML
-2. Include `<script src="/lib/tiktok-bridge.js">` + Socket.io CDN
-3. Use `TikTokBridge.on('chat', cb)` / `TikTokBridge.on('gift', cb)`
-4. Add game card in `public/index.html` with `data-game`, `data-entry`, `data-param`
-
-## Boundaries
-
-**Never:** Commit .env files, modify node_modules, break Socket.io event names (games depend on them)
-**Ask first:** Add new dependencies, change TikTokService event structure, modify tiktok-bridge.js API
+O projeto usa MIT com atribuição ao upstream. O README deve manter Instagram `@monrars`, site `goldneuron.io` e GitHub `@monrars1995`.

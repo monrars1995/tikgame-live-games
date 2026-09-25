@@ -1,267 +1,184 @@
-/**
- * style.css
- * Horse Racing OBS overlay styles.
- * Transparent background — only race elements are visible in OBS.
- */
-
-/* ==========================================
-   RESET & BASE
-   ========================================== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  --ink: #101119;
+  --gold: #ffd06b;
+  --orange: #ff8b23;
+  --white: #fffdf7;
+  --muted: #b6bdc8;
 }
 
-html,
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   background: transparent;
-  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
-  color: #fff;
+  color: var(--white);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ==========================================
-   CANVAS — fills entire viewport
-   ========================================== */
-#raceCanvas {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
+#raceCanvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; }
+#hud { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 
-/* ==========================================
-   HUD — sits on top of canvas
-   ========================================== */
-#hud {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  pointer-events: none;
+.arena-header {
+  position: absolute;
+  top: 13px;
+  left: 13px;
+  right: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, 0.9);
 }
+.arena-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand-spark { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: var(--orange); color: #221207; font-size: 27px; font-weight: 900; box-shadow: 0 0 16px rgba(255, 139, 35, 0.45); }
+.arena-brand span:last-child { display: grid; gap: 2px; min-width: 0; }
+.arena-brand small { color: var(--gold); font-size: clamp(7px, 1.8vw, 10px); font-weight: 900; letter-spacing: 0.17em; }
+.arena-brand strong { font-size: clamp(17px, 5vw, 28px); line-height: 1; font-weight: 1000; letter-spacing: -0.055em; white-space: nowrap; }
+.arena-live-label { margin-top: 4px; color: var(--gold); font-size: clamp(8px, 1.8vw, 10px); font-weight: 900; letter-spacing: 0.1em; text-align: right; white-space: nowrap; }
 
-/* ==========================================
-   PHASE BANNER — top center
-   ========================================== */
 .phase-banner {
   position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  padding: 10px 30px;
-  border-radius: 12px;
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
+  top: 65px;
+  left: 13px;
+  right: 13px;
+  min-height: 34px;
   display: flex;
-  gap: 12px;
   align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  justify-content: space-between;
+  gap: 9px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 208, 107, 0.24);
+  border-radius: 9px;
+  background: rgba(15, 17, 25, 0.75);
+  color: var(--white);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+  font-size: clamp(10px, 2.4vw, 13px);
+  font-weight: 800;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
+#phaseText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#phaseTimer { flex: none; color: var(--orange); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 1000; }
+.phase-banner.countdown { border-color: rgba(255, 139, 35, 0.7); box-shadow: 0 0 20px rgba(255, 139, 35, 0.16); }
 
-#phaseTimer {
-  font-variant-numeric: tabular-nums;
-  color: #ffd700;
-  min-width: 40px;
-}
-
-/* ==========================================
-   LANE LABELS — left side, vertically stacked
-   ========================================== */
 #laneLabels {
   position: absolute;
-  top: 50%;
-  left: 15px;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  top: 15%;
+  bottom: 15%;
+  left: 9px;
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  width: clamp(113px, 31.5vw, 240px);
 }
-
 .lane-label {
-  background: rgba(0, 0, 0, 0.75);
+  align-self: center;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 4px solid;
+  border-radius: 9px;
+  background: rgba(13, 16, 23, 0.79);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(6px);
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  border-left: 5px solid;
-  white-space: nowrap;
-  min-width: 240px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.62);
 }
-
-.lane-label .lane-top {
-  display: flex;
+.lane-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
 }
+.lane-flag { grid-column: 1; font-size: clamp(13px, 3vw, 20px); line-height: 1; }
+.lane-name { grid-column: 2; overflow: hidden; color: var(--white); font-size: clamp(10px, 2.4vw, 15px); font-weight: 900; white-space: nowrap; text-overflow: ellipsis; }
+.lane-vote { grid-column: 1 / 3; grid-row: 2; justify-self: start; color: var(--gold); font-size: clamp(8px, 1.8vw, 11px); font-weight: 800; white-space: nowrap; }
+.lane-dist { grid-column: 3; grid-row: 1 / 3; color: var(--gold); font-size: clamp(10px, 2.5vw, 15px); font-weight: 900; font-variant-numeric: tabular-nums; }
 
-.lane-label .lane-flag {
-  font-size: 22px;
-}
-
-.lane-label .lane-name {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.lane-label .lane-vote {
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffd700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
-}
-
-.lane-label .lane-dist {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  font-weight: 700;
-  color: #ffd700;
-}
-
-.lane-label .lane-gifts {
-  display: flex;
-  gap: 6px;
-  font-size: 26px;
-  line-height: 1.1;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
-}
-
-/* ==========================================
-   EVENT FEED — bottom right
-   ========================================== */
 #eventFeed {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 320px;
-  max-height: 220px;
-  overflow: hidden;
+  right: 10px;
+  bottom: 76px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  width: min(57%, 280px);
+  max-height: 59px;
+  overflow: hidden;
 }
-
 .feed-item {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  animation: fadeIn 0.3s ease;
-  white-space: nowrap;
+  min-width: 0;
+  padding: 5px 8px;
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  background: rgba(13, 16, 23, 0.82);
+  color: var(--white);
+  font-size: clamp(9px, 2.1vw, 12px);
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: feed-in 320ms ease-out both;
 }
+.feed-item.gift { border-color: #ff8b98; }
+.feed-item.vote { border-color: var(--gold); }
+.feed-item.chat { border-color: #85cbff; }
+.feed-item.like { border-color: #8ef0b1; }
 
-.feed-item.gift {
-  border-left: 3px solid #f4a;
+.play-prompt {
+  position: absolute;
+  right: 10px;
+  bottom: 11px;
+  left: 10px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 208, 107, 0.26);
+  border-radius: 8px;
+  background: rgba(13, 16, 23, 0.82);
+  color: #e7e8e9;
+  font-size: clamp(10px, 2.3vw, 12px);
+  line-height: 1.25;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
-.feed-item.vote {
-  border-left: 3px solid #ffd700;
-}
-.feed-item.chat {
-  border-left: 3px solid #4af;
-}
-.feed-item.like {
-  border-left: 3px solid #af4;
-}
+.play-prompt strong { color: var(--gold); font-weight: 900; }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* ==========================================
-   WINNER OVERLAY
-   ========================================== */
 .winner-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.5s ease;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(7, 8, 13, 0.78);
+  backdrop-filter: blur(8px);
 }
-
-.winner-overlay.hidden {
-  display: none;
-}
-
+.winner-overlay.hidden { display: none; }
 .winner-content {
+  width: min(100%, 450px);
+  padding: 27px 22px;
+  border: 1px solid rgba(255, 208, 107, 0.5);
+  border-radius: 18px;
+  background: radial-gradient(circle at top, rgba(255, 139, 35, 0.2), transparent 55%), #1a1c24;
+  box-shadow: 0 0 60px rgba(255, 139, 35, 0.2), 0 25px 60px rgba(0, 0, 0, 0.35);
   text-align: center;
-  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: winner-in 460ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+.winner-kicker, .winner-footer { margin: 0; color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: 0.19em; }
+.winner-emoji { margin-block: 6px; font-size: clamp(52px, 15vw, 80px); line-height: 1.1; }
+.winner-name { font-size: clamp(24px, 7vw, 42px); font-weight: 1000; line-height: 1.1; letter-spacing: -0.05em; text-shadow: 0 3px 8px rgba(0, 0, 0, 0.8); }
+.winner-supporters { margin-top: 14px; color: var(--white); font-size: clamp(11px, 2.6vw, 15px); line-height: 1.35; }
+.winner-footer { margin-top: 24px; color: #c5b99b; font-size: 9px; }
+
+@keyframes feed-in { from { opacity: 0; transform: translateX(9px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes winner-in { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 380px) {
+  .arena-live-label { display: none; }
+  #laneLabels { width: 35vw; }
+  .lane-label { padding: 5px 6px; }
+  .play-prompt { justify-content: start; }
 }
 
-.winner-emoji {
-  font-size: 80px;
-  margin-bottom: 10px;
-}
-
-.winner-name {
-  font-size: 48px;
-  font-weight: 800;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-  margin-bottom: 8px;
-}
-
-.winner-supporters {
-  font-size: 18px;
-  opacity: 0.8;
-}
-
-@keyframes popIn {
-  from {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* ==========================================
-   COUNTDOWN PULSE
-   ========================================== */
-.phase-banner.countdown {
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    transform: translateX(-50%) scale(1);
-  }
-  50% {
-    transform: translateX(-50%) scale(1.05);
-  }
+@media (prefers-reduced-motion: reduce) {
+  .feed-item, .winner-content { animation: none; }
 }

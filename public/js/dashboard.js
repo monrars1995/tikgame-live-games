@@ -1,174 +1,77 @@
-/**
- * dashboard.js
- * Dashboard logic - Generate game overlay links
- *
- * Features:
- * - Game selection from grid
- * - Username validation
- * - Overlay URL generation
- * - Copy to clipboard
- *
- * @module dashboard
- */
-
+/** Dashboard da Corrida do Povo: prepara o link de captura sem fingir uma conexão LIVE. */
 document.addEventListener("DOMContentLoaded", () => {
-	// ==========================================
-	// DOM ELEMENTS
-	// ==========================================
-	const usernameInput = document.getElementById("username");
-	const generateBtn = document.getElementById("generateBtn");
-	const outputSection = document.getElementById("outputSection");
-	const outputUrl = document.getElementById("outputUrl");
-	const copyBtn = document.getElementById("copyBtn");
-	const toast = document.getElementById("toast");
-	const gameCards = document.querySelectorAll(".game-card[data-game]");
+  const usernameInput = document.getElementById("username");
+  const generateBtn = document.getElementById("generateBtn");
+  const outputSection = document.getElementById("outputSection");
+  const outputUrl = document.getElementById("outputUrl");
+  const openOverlay = document.getElementById("openOverlay");
+  const copyBtn = document.getElementById("copyBtn");
+  const toast = document.getElementById("toast");
+  const gameCards = Array.from(document.querySelectorAll(".game-card[data-game]"));
+  let selectedCard = gameCards.find((card) => card.classList.contains("selected")) || gameCards[0];
+  let toastTimer;
 
-	// ==========================================
-	// STATE
-	// ==========================================
-	let selectedGame = "horse-racing";
-	let gameEntry = "index.html";
-	let gameParam = "id";
+  for (const card of gameCards) {
+    card.addEventListener("click", () => {
+      for (const option of gameCards) {
+        const active = option === card;
+        option.classList.toggle("selected", active);
+        option.setAttribute("aria-pressed", String(active));
+      }
+      selectedCard = card;
+    });
+  }
 
-	// ==========================================
-	// GAME SELECTION
-	// Handle game card clicks
-	// ==========================================
-	gameCards.forEach((card) => {
-		card.addEventListener("click", () => {
-			// Deselect all cards
-			gameCards.forEach((c) => c.classList.remove("selected"));
-			// Select clicked card
-			card.classList.add("selected");
-			// Update state
-			selectedGame = card.dataset.game;
-			gameEntry = card.dataset.entry || "index.html";
-			gameParam = card.dataset.param || "id";
-			console.log(
-				`Selected game: ${selectedGame} (${gameEntry}, ${gameParam})`,
-			);
-		});
-	});
+  function notify(message, error = false) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.style.borderColor = error ? "#ff7184" : "#ff8b23";
+    toast.classList.add("show");
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 3500);
+  }
 
-	// ==========================================
-	// GENERATE LINK
-	// Create overlay URL based on username and selected game
-	// ==========================================
-	generateBtn.addEventListener("click", () => {
-		// Get and validate username
-		const username = usernameInput.value.trim().toLowerCase();
+  function generate() {
+    const username = usernameInput.value.trim().toLowerCase().replace(/^@+/, "");
+    if (!username) {
+      notify("Digite o @ do perfil que está ao vivo.", true);
+      usernameInput.focus();
+      return;
+    }
+    if (!/^[a-z0-9_.]+$/.test(username)) {
+      notify("Use apenas letras, números, ponto ou sublinhado no @.", true);
+      usernameInput.focus();
+      return;
+    }
 
-		if (!username) {
-			showToast("⚠️ Please enter your TikTok username!", "error");
-			usernameInput.focus();
-			return;
-		}
+    const game = selectedCard.dataset.game;
+    const entry = selectedCard.dataset.entry || "index.html";
+    const param = selectedCard.dataset.param || "id";
+    const overlayUrl = new URL("/games/" + game + "/" + entry, window.location.origin);
+    overlayUrl.searchParams.set(param, username);
 
-		// Remove @ if present
-		const cleanUsername = username.replace("@", "");
+    outputUrl.value = overlayUrl.href;
+    openOverlay.href = overlayUrl.href;
+    outputSection.classList.add("visible");
+    outputSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    notify("Link pronto. Abra a arena para verificar a conexão com sua live.");
+  }
 
-		// Validate: only allow letters, numbers, underscore, and dots
-		if (!/^[a-z0-9_.]+$/.test(cleanUsername)) {
-			showToast(
-				"⚠️ Username can only contain letters, numbers, _, and .",
-				"error",
-			);
-			return;
-		}
+  generateBtn.addEventListener("click", generate);
+  usernameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") generate();
+  });
 
-		/**
-		 * GENERATE OVERLAY URL
-		 *
-		 * Format: /games/{game}/index.html?id={username}
-		 *
-		 * IMPORTANT:
-		 * - Uses window.location.origin to support production deployment
-		 * - Username will be used as Room ID for Socket.io
-		 */
-		const baseUrl = window.location.origin;
-		const overlayUrl = `${baseUrl}/games/${selectedGame}/${gameEntry}?${gameParam}=${cleanUsername}`;
-
-		// Show output section
-		outputUrl.value = overlayUrl;
-		outputSection.classList.add("visible");
-
-		// Scroll to output
-		outputSection.scrollIntoView({ behavior: "smooth", block: "center" });
-
-		// Button feedback
-		generateBtn.textContent = "✅ Link Generated!";
-		setTimeout(() => {
-			generateBtn.textContent = "✨ Generate Game Link";
-		}, 2000);
-
-		console.log(`Generated overlay URL: ${overlayUrl}`);
-	});
-
-	// ==========================================
-	// COPY TO CLIPBOARD
-	// ==========================================
-	copyBtn.addEventListener("click", async () => {
-		const url = outputUrl.value;
-
-		if (!url) return;
-
-		try {
-			await navigator.clipboard.writeText(url);
-			showToast("✅ Link copied!", "success");
-
-			// Button feedback
-			copyBtn.textContent = "✅ Copied!";
-			setTimeout(() => {
-				copyBtn.textContent = "📋 Copy";
-			}, 2000);
-		} catch (err) {
-			// Fallback for older browsers
-			outputUrl.select();
-			document.execCommand("copy");
-			showToast("✅ Link copied!", "success");
-		}
-	});
-
-	// ==========================================
-	// ENTER KEY SUPPORT
-	// Press Enter in input to generate
-	// ==========================================
-	usernameInput.addEventListener("keypress", (e) => {
-		if (e.key === "Enter") {
-			generateBtn.click();
-		}
-	});
-
-	// ==========================================
-	// TOAST NOTIFICATION
-	// ==========================================
-	function showToast(message, type = "success") {
-		toast.textContent = message;
-
-		// Style based on type
-		if (type === "error") {
-			toast.style.borderColor = "#fe2c55";
-			toast.style.color = "#fe2c55";
-		} else {
-			toast.style.borderColor = "#25f4ee";
-			toast.style.color = "#25f4ee";
-		}
-
-		// Show toast
-		toast.classList.add("show");
-
-		// Auto hide after 3s
-		setTimeout(() => {
-			toast.classList.remove("show");
-		}, 3000);
-	}
-
-	// ==========================================
-	// INITIALIZATION LOG
-	// ==========================================
-	console.log("🎮 TikTok Live Games Dashboard loaded");
-	console.log(
-		"Available games:",
-		Array.from(gameCards).map((c) => c.dataset.game),
-	);
+  copyBtn.addEventListener("click", async () => {
+    if (!outputUrl.value) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API indisponível");
+      await navigator.clipboard.writeText(outputUrl.value);
+      notify("Link copiado.");
+    } catch {
+      outputUrl.focus();
+      outputUrl.select();
+      const copied = document.execCommand("copy");
+      notify(copied ? "Link copiado." : "Selecione o link e copie manualmente.", !copied);
+    }
+  });
 });

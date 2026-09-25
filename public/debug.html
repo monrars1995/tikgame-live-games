@@ -1,158 +1,218 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TikTok Bridge Debugger</title>
+    <meta name="theme-color" content="#0c1018" />
+    <title>Diagnóstico da live · TikGame</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/lib/tiktok-bridge.js"></script>
     <style>
-      body {
-        font-family: sans-serif;
-        background: #121212;
-        color: #eee;
-        padding: 20px;
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0c1018;
+        color: #f5f7fa;
+        font-synthesis: none;
       }
-      #log {
-        background: #000;
-        height: 400px;
-        overflow-y: scroll;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 13px;
-        line-height: 1.5;
-      }
-      .chat {
-        color: #4af;
-      }
-      .gift {
-        color: #f4a;
-        font-weight: bold;
-      }
-      .like {
-        color: #af4;
-      }
-      .share {
-        color: #fa4;
-      }
-      .error {
-        color: #f44;
-      }
-      .reconnecting {
-        color: #ff0;
-      }
-      .system {
-        color: #888;
-      }
-      input {
-        padding: 8px;
-        border-radius: 4px;
-        border: 1px solid #444;
-        background: #222;
-        color: #fff;
-        width: 250px;
-      }
-      button {
-        padding: 8px 15px;
-        background: #007bff;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      #stats {
-        margin-top: 10px;
-        padding: 10px;
-        background: #1a1a1a;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 12px;
-        color: #888;
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 85% -10%, #363043 0, transparent 35%), #0c1018; }
+      a { color: inherit; }
+      button, input { font: inherit; }
+      .shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 23px 0; }
+      .brand { font-weight: 900; letter-spacing: -.06em; text-decoration: none; font-size: 22px; }
+      .brand span { color: #ffb351; }
+      .back { text-decoration: none; color: #a5afc0; font-size: 13px; font-weight: 700; }
+      .back:hover { color: #fff; }
+      main { padding: 35px 0 60px; }
+      .eyebrow { color: #ffb351; font-size: 11px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+      h1 { margin: 8px 0 8px; font-size: clamp(35px, 6vw, 58px); letter-spacing: -.065em; line-height: .99; }
+      .intro { margin: 0; color: #a5afc0; line-height: 1.55; max-width: 620px; }
+      .panel { border: 1px solid #303a49; background: #171e29; box-shadow: 0 18px 50px #05070d45; border-radius: 20px; }
+      .connect-panel { margin-top: 30px; padding: 22px; }
+      label { display: block; margin-bottom: 10px; color: #d7deea; font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+      .form-row { display: flex; gap: 10px; }
+      input { min-width: 0; flex: 1; border: 1px solid #455064; border-radius: 12px; padding: 14px 16px; background: #0e141f; color: #fff; outline: none; }
+      input:focus-visible { border-color: #ffb351; box-shadow: 0 0 0 3px #ffb35130; }
+      button { border: 0; border-radius: 12px; background: #ff9c3c; color: #17100a; padding: 13px 21px; font-weight: 900; cursor: pointer; }
+      button:hover { background: #ffc179; }
+      button:focus-visible, a:focus-visible { outline: 3px solid #ffb351; outline-offset: 3px; }
+      .hint { margin: 13px 0 0; color: #8593a8; font-size: 12px; line-height: 1.5; }
+      .connection-state { display: flex; align-items: center; gap: 12px; min-height: 55px; margin-top: 16px; padding: 12px 16px; border: 1px solid #344251; border-radius: 12px; color: #b3bdcc; background: #101923; font-weight: 700; font-size: 13px; line-height: 1.4; }
+      .connection-state::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none; background: #788494; box-shadow: 0 0 0 4px #78849422; }
+      .connection-state.pending::before { background: #ffb351; box-shadow: 0 0 0 4px #ffb35125; }
+      .connection-state.success::before { background: #58e8a1; box-shadow: 0 0 0 4px #58e8a125; }
+      .connection-state.error::before { background: #ff657d; box-shadow: 0 0 0 4px #ff657d25; }
+      .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 34px 0 14px; }
+      h2 { margin: 0; font-size: 19px; letter-spacing: -.035em; }
+      .section-head small { color: #8593a8; }
+      .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .stat { padding: 18px; }
+      .stat-value { display: block; font-size: 28px; line-height: 1; font-weight: 900; letter-spacing: -.06em; }
+      .stat-label { display: block; margin-top: 9px; color: #95a2b4; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+      #log { height: min(47vh, 420px); min-height: 230px; overflow-y: auto; padding: 8px 14px; }
+      .log-entry { display: grid; grid-template-columns: 68px 1fr; gap: 12px; border-bottom: 1px solid #ffffff0d; padding: 10px 2px; color: #b6c1cf; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+      .log-entry:last-child { border-bottom: 0; }
+      .log-entry time { color: #68798e; font-variant-numeric: tabular-nums; }
+      .log-entry.chat { color: #75dcff; }
+      .log-entry.gift { color: #ffabcb; }
+      .log-entry.like { color: #ffca81; }
+      .log-entry.share { color: #b0e8aa; }
+      .log-entry.error { color: #ff8999; }
+      .log-entry.success { color: #7ef0b5; }
+      .guide { color: #9ba9bb; font-size: 12px; line-height: 1.6; margin: 16px 2px; }
+      @media (max-width: 600px) {
+        main { padding-top: 24px; }
+        .form-row { flex-direction: column; }
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .section-head { align-items: flex-start; flex-direction: column; }
       }
     </style>
   </head>
   <body>
-    <h1>TikTok Bridge Debugger</h1>
-    <div style="margin-bottom: 20px">
-      <input type="text" id="username" placeholder="Enter TikTok Username (e.g. jessicabalester)" />
-      <button onclick="start()">Connect</button>
-    </div>
-    <div id="stats">Waiting for connection...</div>
-    <div id="log"></div>
+    <header class="shell topbar">
+      <a class="brand" href="/">TIK<span>GAME</span></a>
+      <a class="back" href="/">← Voltar ao fliperama</a>
+    </header>
+    <main class="shell">
+      <span class="eyebrow">Gold Neuron · Ferramentas da live</span>
+      <h1>Diagnóstico ao vivo.</h1>
+      <p class="intro">Confira a conexão e veja os eventos que chegam do TikTok antes de abrir o jogo na captura.</p>
 
+      <section class="panel connect-panel" aria-label="Conectar à live">
+        <form id="connect-form">
+          <label for="username">Perfil da live</label>
+          <div class="form-row">
+            <input id="username" type="text" placeholder="@seuperfil" autocomplete="off" autocapitalize="off" spellcheck="false" required />
+            <button type="submit">Conectar / tentar novamente</button>
+          </div>
+        </form>
+        <p class="hint">Use o @ de quem está transmitindo, sem link. Você pode trocar de perfil e reconectar nesta tela.</p>
+        <div id="connection-state" class="connection-state" role="status" aria-live="polite">Aguardando o @ da transmissão.</div>
+      </section>
+
+      <div class="section-head"><h2>Eventos recebidos</h2><small>Os últimos 120 eventos aparecem abaixo</small></div>
+      <section class="stats" aria-label="Contadores de eventos">
+        <div class="panel stat"><strong class="stat-value" id="chat-count">0</strong><span class="stat-label">Comentários</span></div>
+        <div class="panel stat"><strong class="stat-value" id="gift-count">0</strong><span class="stat-label">Eventos de presente</span></div>
+        <div class="panel stat"><strong class="stat-value" id="like-count">0</strong><span class="stat-label">Curtidas</span></div>
+        <div class="panel stat"><strong class="stat-value" id="share-count">0</strong><span class="stat-label">Compartilhamentos</span></div>
+      </section>
+
+      <div class="section-head"><h2>Registro da ponte</h2><small>Horário local · mais recentes primeiro</small></div>
+      <div id="log" class="panel" role="log" aria-label="Eventos da live"></div>
+      <p class="guide">Primeiro confirme o estado “Conectado”. Depois faça um comentário ou curta a live para testar sem enviar presentes. Se um presente não aparecer aqui, o jogo também não o recebeu.</p>
+    </main>
     <script>
-      const logDiv = document.getElementById("log");
-      const statsDiv = document.getElementById("stats");
-      let chatCount = 0,
-        giftCount = 0,
-        likeCount = 0,
-        shareCount = 0;
+      const bridge = window.TikTokBridge;
+      const input = document.getElementById("username");
+      const stateNode = document.getElementById("connection-state");
+      const logNode = document.getElementById("log");
+      const counters = { chat: 0, gift: 0, like: 0, share: 0 };
+      const MAX_LOG_ENTRIES = 120;
 
-      function addLog(msg, type = "") {
+      function setState(message, tone = "") {
+        stateNode.className = `connection-state ${tone}`;
+        stateNode.textContent = message;
+      }
+
+      function log(message, type = "") {
         const entry = document.createElement("div");
-        entry.className = type;
-        entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        logDiv.prepend(entry);
+        entry.className = `log-entry ${type}`;
+        const time = document.createElement("time");
+        time.textContent = new Date().toLocaleTimeString("pt-BR");
+        const text = document.createElement("span");
+        text.textContent = message;
+        entry.append(time, text);
+        logNode.prepend(entry);
+        while (logNode.children.length > MAX_LOG_ENTRIES) logNode.lastElementChild.remove();
       }
 
-      function updateStats() {
-        statsDiv.textContent = `Chat: ${chatCount} | Gift: ${giftCount} | Like: ${likeCount} | Share: ${shareCount}`;
+      function updateCounters() {
+        for (const [key, value] of Object.entries(counters)) {
+          document.getElementById(`${key}-count`).textContent = value.toLocaleString("pt-BR");
+        }
       }
 
-      function start() {
-        const username = document.getElementById("username").value.trim();
-        if (!username) return alert("Please enter a username");
+      function resetCounters() {
+        for (const key of Object.keys(counters)) counters[key] = 0;
+        updateCounters();
+      }
 
-        addLog(`Connecting to ${username}...`, "system");
-        TikTokBridge.connect(username);
+      function readableError(data) {
+        const message = data?.message || "Falha desconhecida.";
+        if (/Cannot connect to|currently streaming/i.test(message)) {
+          return `Não foi possível acessar a live de @${bridge.username}. Confira se ela está ao vivo e tente novamente.`;
+        }
+        if (/Reconnect failed/i.test(message)) {
+          return "A reconexão esgotou as tentativas. Confira se a live continua ativa e tente novamente.";
+        }
+        if (/Invalid username/i.test(message)) return "Digite um @ válido para conectar.";
+        return message;
+      }
 
-        TikTokBridge.on("connected", (data) => addLog(`SUCCESS: Joined room ${data.room}`, "like"));
+      document.getElementById("connect-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const username = input.value.trim().replace(/^@/, "").toLowerCase();
+        if (!/^[a-z0-9_.]+$/.test(username)) {
+          setState("Digite um @ válido para conectar.", "error");
+          input.focus();
+          return;
+        }
+        const previous = bridge.username;
+        if (previous !== username) resetCounters();
+        input.value = `@${username}`;
+        setState(`Conectando à live de @${username}…`, "pending");
+        log(`Solicitando conexão com @${username}.`, "system");
+        bridge.connect(username);
+      });
 
-        TikTokBridge.on("chat", (data) => {
-          chatCount++;
-          addLog(`💬 ${data.user.nickname}: ${data.comment}`, "chat");
-          updateStats();
-        });
+      bridge.on("connected", (data) => {
+        const room = data?.room || bridge.username;
+        setState(`Conectado à live de @${room}. Aguardando interações.`, "success");
+        log(`Conectado à live de @${room}.`, "success");
+      });
+      bridge.on("chat", (data) => {
+        counters.chat++;
+        log(`💬 @${data?.user?.uniqueId || "usuario"}: ${data?.comment || ""}`, "chat");
+        updateCounters();
+      });
+      bridge.on("gift", (data) => {
+        counters.gift++;
+        log(`🎁 @${data?.user?.uniqueId || "usuario"} enviou ${data?.giftName || "presente"} ×${data?.repeatCount || 1} (${data?.giftValue || 0} moedas/unidade).`, "gift");
+        updateCounters();
+      });
+      bridge.on("like", (data) => {
+        counters.like += Number(data?.likeCount) || 0;
+        log(`❤️ @${data?.user?.uniqueId || "usuario"} curtiu +${data?.likeCount || 0}.`, "like");
+        updateCounters();
+      });
+      bridge.on("share", (data) => {
+        counters.share++;
+        log(`↗️ @${data?.user?.uniqueId || "usuario"} compartilhou a live.`, "share");
+        updateCounters();
+      });
+      bridge.on("reconnecting", (data) => {
+        const delay = Number(data?.delayMs) || 0;
+        setState(`Reconectando a @${bridge.username}…`, "pending");
+        log(delay > 0 ? `Reconexão ${data?.attempt || 1} em ${Math.ceil(delay / 1000)} s.` : "Ponte local desconectada; reconectando.", "system");
+      });
+      bridge.on("disconnected", () => {
+        setState(`A live de @${bridge.username} desconectou. Tentando recuperar…`, "pending");
+        log("A transmissão desconectou.", "error");
+      });
+      bridge.on("error", (data) => {
+        const message = readableError(data);
+        setState(message, "error");
+        log(`Falha: ${message}`, "error");
+      });
 
-        TikTokBridge.on("gift", (data) => {
-          giftCount++;
-          addLog(
-            `🎁 ${data.user.nickname} sent "${data.giftName}" (id:${data.giftId}) x${data.repeatCount} — ${data.giftValue}💎 [${data.giftType}]`,
-            "gift",
-          );
-          updateStats();
-        });
-
-        TikTokBridge.on("like", (data) => {
-          likeCount += data.likeCount;
-          addLog(
-            `❤️ ${data.user.nickname} liked (+${data.likeCount}, total: ${data.totalLikeCount})`,
-            "like",
-          );
-          updateStats();
-        });
-
-        TikTokBridge.on("share", (data) => {
-          shareCount++;
-          addLog(`🔗 ${data.user.nickname} shared the live!`, "share");
-          updateStats();
-        });
-
-        TikTokBridge.on("reconnecting", (data) => {
-          addLog(
-            `⏳ Reconnecting attempt ${data.attempt} (waiting ${data.delayMs}ms)...`,
-            "reconnecting",
-          );
-        });
-
-        TikTokBridge.on("error", (data) => {
-          addLog(`❌ Error: ${data.message}`, "error");
-        });
-
-        TikTokBridge.on("disconnected", () => {
-          addLog(`⚠️ TikTok Live disconnected`, "error");
-        });
+      const params = new URLSearchParams(window.location.search);
+      const initialUser = params.get("id") || params.get("username");
+      if (initialUser) {
+        input.value = `@${initialUser.replace(/^@/, "")}`;
+        setState("Conectando ao perfil do link…", "pending");
       }
     </script>
   </body>

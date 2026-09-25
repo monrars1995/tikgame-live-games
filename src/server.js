@@ -14,7 +14,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { dirname, join, resolve } from "path";
 import tiktokService from "./services/TikTokService.js";
 
 // ES Module equivalent of __dirname
@@ -36,6 +36,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || "127.0.0.1";
 
 // ==========================================
 // MIDDLEWARE & STATIC FILES
@@ -75,115 +76,99 @@ app.get("/api/stats", (req, res) => {
 // SOCKET.IO - REALTIME CONNECTION HANDLING
 // ==========================================
 
-io.on("connection", (socket) => {
-  console.log(`[Socket] Client connected: ${socket.id}`);
+/** One Socket.io client subscribes to one streamer at a time. */
+export function registerSocketHandlers(socket, roomIo = io, service = tiktokService) {
+  let membershipVersion = 0;
+  let pendingJoin = null;
+  socket.tiktokUsername = null;
 
-  /**
-   * JOIN ROOM HANDLER
-   *
-   * IMPORTANT - DATA ISOLATION:
-   * - Each client joins a room based on streamer's username
-   * - Client only receives events from their subscribed streamer
-   * - Ensures data isolation between different streamers
-   */
-  socket.on("join-room", async (username) => {
-    // Validate username
-    if (!username || typeof username !== "string") {
+  const normalizeUsername = (value) => {
+    if (typeof value !== "string") return null;
+    const name = value.trim().replace(/^@/, "").toLowerCase();
+    return /^[a-z0-9_.]+$/.test(name) ? name : null;
+  };
+
+  const leaveCurrentRoom = () => {
+    const username = socket.tiktokUsername;
+    if (!username) return;
+    membershipVersion++;
+    pendingJoin = null;
+    socket.tiktokUsername = null;
+    socket.leave(username);
+    service.removeClientFromRoom(username);
+    console.log(`[Socket] ${socket.id} left room: ${username}`);
+  };
+
+  socket.on("join-room", async (value) => {
+    const username = normalizeUsername(value);
+    if (!username) {
       socket.emit("error", { message: "Invalid username" });
       return;
     }
+    if (socket.tiktokUsername !== username) {
+      leaveCurrentRoom();
+      socket.tiktokUsername = username;
+      socket.join(username);
+      service.addClientToRoom(username);
+      console.log(`[Socket] ${socket.id} joined room: ${username}`);
+    }
+    if (pendingJoin?.username === username) return;
 
-    // Normalize username (lowercase, trimmed)
-    const normalizedUsername = username.toLowerCase().trim();
-
-    // Store username in socket instance for disconnect handling
-    socket.tiktokUsername = normalizedUsername;
-
-    // Join Socket.io room
-    socket.join(normalizedUsername);
-    console.log(`[Socket] ${socket.id} joined room: ${normalizedUsername}`);
-
-    // Update room client tracking
-    tiktokService.addClientToRoom(normalizedUsername);
-
-    // Connect to TikTok Live (reuses existing connection if available)
+    const version = membershipVersion;
+    const join = { username };
+    pendingJoin = join;
     try {
-      const connected = await tiktokService.connect(normalizedUsername, io);
+      const connected = await service.connect(username, roomIo);
+      if (socket.tiktokUsername !== username || membershipVersion !== version) return;
       if (connected) {
         socket.emit("room-joined", {
-          room: normalizedUsername,
-          message: `Joined room: ${normalizedUsername}`,
+          room: username,
+          message: `Joined room: ${username}`,
         });
       } else {
         socket.emit("connection-error", {
-          message: `Cannot connect to ${normalizedUsername}'s live. Make sure they are currently streaming!`,
+          message: `Cannot connect to ${username}'s live. Make sure they are currently streaming!`,
         });
       }
     } catch (error) {
-      console.error(`[Socket] Error connecting to TikTok: ${error.message}`);
-      socket.emit("connection-error", {
-        message: error.message,
-      });
+      if (socket.tiktokUsername === username && membershipVersion === version) {
+        socket.emit("connection-error", { message: error.message });
+      }
+    } finally {
+      if (pendingJoin === join) pendingJoin = null;
     }
   });
 
-  /**
-   * LEAVE ROOM HANDLER
-   */
-  socket.on("leave-room", (username) => {
-    if (username) {
-      const normalizedUsername = username.toLowerCase().trim();
-      socket.leave(normalizedUsername);
-      tiktokService.removeClientFromRoom(normalizedUsername);
-      console.log(`[Socket] ${socket.id} left room: ${normalizedUsername}`);
-    }
+  socket.on("leave-room", (value) => {
+    if (normalizeUsername(value) === socket.tiktokUsername) leaveCurrentRoom();
   });
 
-  /**
-   * DISCONNECT HANDLER
-   *
-   * When client disconnects, update room count.
-   * If room is empty for too long, TikTokService will auto-disconnect.
-   */
   socket.on("disconnect", () => {
+    leaveCurrentRoom();
     console.log(`[Socket] Client disconnected: ${socket.id}`);
-
-    if (socket.tiktokUsername) {
-      tiktokService.removeClientFromRoom(socket.tiktokUsername);
-    }
   });
 
-  /**
-   * Debug: Ping-pong for connection testing
-   */
-  socket.on("ping", () => {
-    socket.emit("pong", { timestamp: Date.now() });
-  });
+  socket.on("ping", () => socket.emit("pong", { timestamp: Date.now() }));
+}
+
+io.on("connection", (socket) => {
+  console.log(`[Socket] Client connected: ${socket.id}`);
+  registerSocketHandlers(socket);
 });
 
 // ==========================================
 // START SERVER
 // ==========================================
 
-server.listen(PORT, () => {
-  console.log(`
-    TikTok Live Games - Open Source Platform
-    Server running at: → http://localhost:${PORT}
-    `);
-});
-
-// Graceful shutdown handler
-process.on("SIGINT", () => {
-  console.log("\n[Server] Shutting down...");
-
-  // Disconnect all TikTok connections
-  const stats = tiktokService.getStats();
-  stats.connections.forEach((username) => {
-    tiktokService.disconnect(username);
+if (process.argv[1] && resolve(process.argv[1]) === __filename) {
+  server.listen(PORT, HOST, () => {
+    console.log(`TikGame Live Games running at http://${HOST}:${PORT}`);
   });
 
-  server.close(() => {
-    console.log("[Server] Goodbye!");
-    process.exit(0);
+  process.on("SIGINT", () => {
+    for (const username of tiktokService.getStats().connections) {
+      tiktokService.disconnect(username);
+    }
+    server.close(() => process.exit(0));
   });
-});
+}

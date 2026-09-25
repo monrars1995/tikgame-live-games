@@ -3,77 +3,39 @@
  * Horse Racing game configuration.
  *
  * LANE SYSTEM:
- * - Each lane = a country flag (viewers root for their country).
- * - Gifts are mapped to lanes by name, balanced across value tiers.
- * - Overlay shows which gift powers which horse.
+ * - Each lane is a horse chosen with a comment (1–5 or its name).
+ * - Gifts and likes boost the sender's horse; viewers without a choice join
+ *   the next lane automatically so a paid interaction is never discarded.
  *
  * CUSTOMIZING:
  * - Use debug.html to discover exact gift names from your TikTok stream.
- * - Update giftTiers below to match your audience's available gifts.
+ * - Update giftEmojis below to match your audience's available gifts.
  *
  * @module games/horse-racing/config
  */
 
 const CONFIG = {
 	// ==========================================
-	// LANES (HORSES = COUNTRY FLAGS)
-	// Top TikTok markets in Asia
+	// Five original horses, each with a number and a distinct colour.
 	// ==========================================
 	lanes: [
-		{ id: 0, name: "Vietnam", flag: "🇻🇳", color: "#FF4444", aliases: ["vn", "vietnam", "viet nam", "viet"] },
-		{ id: 1, name: "Thailand", flag: "🇹🇭", color: "#4488FF", aliases: ["th", "tl", "thailand", "thai"] },
-		{ id: 2, name: "Indonesia", flag: "🇮🇩", color: "#44DD44", aliases: ["id", "indonesia", "indo"] },
-		{ id: 3, name: "Malaysia", flag: "🇲🇾", color: "#FFCC00", aliases: ["my", "ml", "malaysia", "malay"] },
-		{ id: 4, name: "China", flag: "🇨🇳", color: "#CC44FF", aliases: ["cn", "china", "trung quoc", "trung"] },
+		{ id: 0, name: "Relâmpago", flag: "⚡", color: "#FECC5E", aliases: ["relampago"] },
+		{ id: 1, name: "Foguete", flag: "🚀", color: "#FF6C86", aliases: ["foguete"] },
+		{ id: 2, name: "Trovão", flag: "🌩️", color: "#59D6F8", aliases: ["trovao"] },
+		{ id: 3, name: "Ventania", flag: "🌪️", color: "#9C8BFF", aliases: ["ventania"] },
+		{ id: 4, name: "Estrela", flag: "🌟", color: "#7CE2A7", aliases: ["estrela"] },
 	],
 
 	// ==========================================
-	// GIFT → LANE MAPPING (by value tier)
-	// Each tier: equal-cost gifts, one per lane.
-	// Array index = lane index (0=VN, 1=TH, 2=ID, 3=MY, 4=CN).
+	// Gift names only control the feed icon, never the horse being boosted.
 	// ==========================================
-	giftTiers: [
-		{
-			coins: 1,
-			gifts: [
-				{ name: "Rose", emoji: "🌹" },
-				{ name: "GG", emoji: "✌️" },
-				{ name: "Ice Cream Cone", emoji: "🍦" },
-				{ name: "Finger Heart", emoji: "🫰" },
-				{ name: "TikTok", emoji: "🎵" },
-			],
-		},
-		{
-			coins: 5,
-			gifts: [
-				{ name: "Hand Heart", emoji: "💕" },
-				{ name: "Little Crown", emoji: "👑" },
-				{ name: "Butterfly", emoji: "🦋" },
-				{ name: "Love You", emoji: "💗" },
-				{ name: "Wishing Bottle", emoji: "🧴" },
-			],
-		},
-		{
-			coins: 10,
-			gifts: [
-				{ name: "Perfume", emoji: "💐" },
-				{ name: "Doughnut", emoji: "🍩" },
-				{ name: "Cap", emoji: "🧢" },
-				{ name: "Paper Crane", emoji: "🕊️" },
-				{ name: "Sunglasses", emoji: "🕶️" },
-			],
-		},
-		{
-			coins: 99,
-			gifts: [
-				{ name: "Garland", emoji: "🏵️" },
-				{ name: "Singing Mic", emoji: "🎤" },
-				{ name: "Star", emoji: "⭐" },
-				{ name: "Concert", emoji: "🎸" },
-				{ name: "Lock and Key", emoji: "🔐" },
-			],
-		},
-	],
+	giftEmojis: {
+		rose: "🌹", rosa: "🌹", gg: "✌️", "ice cream cone": "🍦",
+		"finger heart": "🫰", tiktok: "🎵", "hand heart": "💕",
+		"little crown": "👑", butterfly: "🦋", "love you": "💗",
+		perfume: "💐", doughnut: "🍩", cap: "🧢", star: "⭐",
+		concert: "🎸", garland: "🏵️",
+	},
 
 	// ==========================================
 	// RACE PHASES & TIMING (ms)
@@ -82,83 +44,46 @@ const CONFIG = {
 		/** WAITING — lobby, waiting for first gift to start countdown */
 		waiting: { duration: Infinity },
 		/** COUNTDOWN — 10s before race begins */
-		countdown: { duration: 10_000 },
+		countdown: { duration: 8_000 },
 		/** RACING — gifts move horses, first to finish wins */
-		racing: { duration: 120_000 }, // max race length (2 min failsafe)
+		racing: { duration: 90_000 },
 		/** FINISHED — show winner for 8s */
-		finished: { duration: 8_000 },
+		finished: { duration: 7_000 },
 		/** COOLDOWN — brief pause before auto-reset */
-		cooldown: { duration: 5_000 },
+		cooldown: { duration: 4_000 },
 	},
 
 	// ==========================================
 	// RACE MECHANICS
 	// ==========================================
 	/** Distance (arbitrary units) a horse must reach to win */
-	finishLine: 1000,
+	finishLine: 300,
 
 	/** Distance a single chat vote gives (much less than gifts) */
-	chatDistance: 3,
+	chatDistance: 2,
+	chatCooldownMs: 15_000,
+	likeDistance: 0.2,
 
 	/**
 	 * Convert gift diamond value to movement distance.
-	 * Tunable: base + multiplier * sqrt(value) gives diminishing returns on mega-gifts.
+	 * A 50-coin gift outruns five Roses, while a per-gift cap prevents a single
+	 * very large gift from instantly finishing an entire race.
 	 */
 	giftToDistance(giftValue) {
-		return Math.round(5 + 3 * Math.sqrt(giftValue));
-	},
-
-	/**
-	 * Resolve gift → lane index.
-	 * Priority: 1) giftName match in tier map, 2) giftId % lanes fallback.
-	 */
-	giftToLane(giftName, giftId, laneCount) {
-		// Build name→lane lookup on first call (lazy init)
-		if (!this._giftNameMap) {
-			this._giftNameMap = {};
-			for (const tier of this.giftTiers) {
-				tier.gifts.forEach((g, idx) => {
-					this._giftNameMap[g.name.toLowerCase()] = idx;
-				});
-			}
-		}
-		const key = (giftName || "").toLowerCase();
-		if (key && this._giftNameMap[key] !== undefined) {
-			return this._giftNameMap[key];
-		}
-		// Fallback for unmapped gifts
-		return Math.abs(giftId || 0) % laneCount;
+		const value = Math.max(1, Number(giftValue) || 1);
+		return Math.min(140, Math.round(8 * Math.pow(value, 0.55)));
 	},
 
 	/**
 	 * Get gift emoji by name (for HUD/feed display).
 	 */
 	getGiftEmoji(giftName) {
-		if (!this._giftEmojiMap) {
-			this._giftEmojiMap = {};
-			for (const tier of this.giftTiers) {
-				for (const g of tier.gifts) {
-					this._giftEmojiMap[g.name.toLowerCase()] = g.emoji;
-				}
-			}
-		}
-		return this._giftEmojiMap[(giftName || "").toLowerCase()] || "🎁";
-	},
-
-	/**
-	 * Get all gift emojis for a lane (for HUD legend).
-	 * @param {number} laneIdx
-	 * @returns {string[]} Array of emoji strings
-	 */
-	getLaneGiftEmojis(laneIdx) {
-		return this.giftTiers
-			.map((tier) => tier.gifts[laneIdx]?.emoji)
-			.filter(Boolean);
+		return this.giftEmojis[(giftName || "").trim().toLowerCase()] || "🎁";
 	},
 
 	/**
 	 * Chat-based lane selection.
-	 * Viewer types country code (VN, TH, ID, MY, CN), aliases, or number 1-5.
+	 * Viewer types a horse name, alias, or number 1–5.
 	 * Case-insensitive, trimmed.
 	 * @returns {number} lane index or -1 if no match
 	 */
@@ -167,14 +92,14 @@ const CONFIG = {
 		if (!text) return -1;
 
 		// Number shortcut: "1"-"5"
-		const num = parseInt(text, 10);
+		const num = /^\d+$/.test(text) ? Number(text) : NaN;
 		if (num >= 1 && num <= this.lanes.length) return num - 1;
 
 		// Build alias lookup on first call (lazy init)
 		if (!this._chatAliasMap) {
 			this._chatAliasMap = {};
 			for (const lane of this.lanes) {
-				// Country name itself
+				// Horse name itself
 				this._chatAliasMap[lane.name.toLowerCase()] = lane.id;
 				// All aliases
 				for (const alias of lane.aliases || []) {

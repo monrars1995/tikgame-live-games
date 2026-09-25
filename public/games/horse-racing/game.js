@@ -13,6 +13,8 @@
 	// ==========================================
 	const config = window.RACE_CONFIG;
 	const engine = new RaceEngine(config);
+	let visualDistances = config.lanes.map(() => 0);
+	let particles = [];
 
 	const canvas = document.getElementById("raceCanvas");
 	const ctx = canvas.getContext("2d");
@@ -27,6 +29,9 @@
 	const winnerEmoji = document.getElementById("winnerEmoji");
 	const winnerName = document.getElementById("winnerName");
 	const winnerSupporters = document.getElementById("winnerSupporters");
+	const hasStreamer = new URLSearchParams(window.location.search).has("id") ||
+		new URLSearchParams(window.location.search).has("username");
+	let connectionHint = hasStreamer ? "Conectando à live…" : "Abra a arena pelo painel para conectar";
 
 	// ==========================================
 	// CANVAS SIZING
@@ -44,6 +49,29 @@
 	TikTokBridge.on("gift", (data) => engine.handleGift(data));
 	TikTokBridge.on("chat", (data) => engine.handleChat(data));
 	TikTokBridge.on("like", (data) => engine.handleLike(data));
+	TikTokBridge.on("connected", () => { connectionHint = null; });
+	TikTokBridge.on("reconnecting", () => { connectionHint = "Reconectando à live…"; });
+	TikTokBridge.on("disconnected", () => { connectionHint = "Live desconectada · reconectando…"; });
+	TikTokBridge.on("error", () => { connectionHint = "Sem conexão · confira o @ e a live"; });
+	engine.on("laneMove", ({ laneIdx, lane, distance }) => {
+		const width = canvas.width;
+		const height = canvas.height;
+		const left = Math.min(280, Math.max(175, width * 0.39));
+		const right = width - Math.max(20, width * 0.04);
+		const x = left + (right - left) * (lane.distance / config.finishLine);
+		const y = height * (0.15 + (laneIdx + 0.5) * 0.7 / config.lanes.length);
+		const amount = Math.min(24, Math.max(5, Math.round(distance / 4)));
+		for (let i = 0; i < amount; i++) {
+			particles.push({ x, y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, life: 1, color: lane.color });
+		}
+		if (particles.length > 220) particles.splice(0, particles.length - 220);
+	});
+	engine.on("raceFinished", ({ winner }) => {
+		for (let i = 0; i < 90; i++) {
+			particles.push({ x: canvas.width / 2, y: canvas.height * 0.42, vx: (Math.random() - 0.5) * 12, vy: -Math.random() * 9, life: 1, color: i % 3 ? winner.color : "#ffe3a2" });
+		}
+		if (particles.length > 220) particles.splice(0, particles.length - 220);
+	});
 
 	// ==========================================
 	// BUILD LANE LABELS (with gift legend)
@@ -56,18 +84,15 @@
 			el.id = `lane-label-${lane.id}`;
 			el.style.borderLeftColor = lane.color;
 
-			// Get gift emojis for this lane across all tiers
-			const giftEmojis = config.getLaneGiftEmojis(lane.id).join(" ");
 			const voteNum = lane.id + 1; // 1-indexed for viewers
 
 			el.innerHTML =
 				`<div class="lane-top">` +
 				`<span class="lane-flag">${lane.flag}</span> ` +
 				`<span class="lane-name">${lane.name}</span> ` +
-				`<span class="lane-vote">Type ${voteNum}</span>` +
+				`<span class="lane-vote">COMENTE ${voteNum}</span>` +
 				`<span class="lane-dist">0%</span>` +
-				`</div>` +
-				`<div class="lane-gifts">${giftEmojis}</div>`;
+				`</div>`;
 			laneLabelsDiv.appendChild(el);
 		});
 	}
@@ -75,13 +100,16 @@
 
 	// Rebuild lane labels on reset (flags might re-render)
 	engine.on("phaseChange", ({ phase }) => {
-		if (phase === "waiting") buildLaneLabels();
+		if (phase === "waiting") {
+			buildLaneLabels();
+			visualDistances = config.lanes.map(() => 0);
+		}
 	});
 
 	// ==========================================
 	// RENDER LOOP
 	// ==========================================
-	let lastFeedCount = 0;
+	let lastFeedHead = null;
 
 	function frame() {
 		const state = engine.tick();
@@ -106,12 +134,12 @@
 		const trackBottom = H * 0.85;
 		const trackHeight = trackBottom - trackTop;
 		const laneH = trackHeight / laneCount;
-		const trackLeft = 275; // space for wider lane labels with gift icons
-		const trackRight = W - 60; // extra margin for FINISH label
+		const trackLeft = Math.min(280, Math.max(175, W * 0.39));
+		const trackRight = W - Math.max(20, W * 0.04);
 		const trackWidth = trackRight - trackLeft;
 
 		// Draw track background
-		ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+		ctx.fillStyle = "rgba(5, 10, 28, 0.24)";
 		ctx.beginPath();
 		ctx.roundRect(
 			trackLeft - 10,
@@ -145,9 +173,11 @@
 			}
 
 			// Progress bar
-			const progress = Math.min(lane.distance / config.finishLine, 1);
+			visualDistances[i] += (lane.distance - visualDistances[i]) * 0.11;
+			if (Math.abs(lane.distance - visualDistances[i]) < 0.05) visualDistances[i] = lane.distance;
+			const progress = Math.min(visualDistances[i] / config.finishLine, 1);
 			const barWidth = trackWidth * progress;
-			ctx.fillStyle = lane.color + "40"; // semi-transparent
+			ctx.fillStyle = lane.color + "50";
 			ctx.fillRect(trackLeft, y + 4, barWidth, laneH - 8);
 
 			// Horse position
@@ -156,19 +186,22 @@
 
 			// Horse circle (lane color)
 			ctx.beginPath();
-			ctx.arc(horseX, horseY, laneH * 0.3, 0, Math.PI * 2);
+			ctx.shadowColor = lane.color;
+			ctx.shadowBlur = 22;
+			ctx.arc(horseX, horseY, Math.min(laneH * 0.28, 27), 0, Math.PI * 2);
 			ctx.fillStyle = lane.color;
 			ctx.fill();
 			ctx.strokeStyle = "#fff";
 			ctx.lineWidth = 2;
 			ctx.stroke();
+			ctx.shadowBlur = 0;
 
-			// Country flag emoji on the horse
-			const flagSize = Math.round(laneH * 0.4);
+			// A horse sprite-like glyph makes the runner unmistakable at 450px.
+			const flagSize = Math.min(31, Math.round(laneH * 0.32));
 			ctx.font = `${flagSize}px serif`;
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
-			ctx.fillText(lane.flag, horseX, horseY);
+			ctx.fillText("🏇", horseX, horseY);
 		});
 
 		// Finish line
@@ -185,7 +218,19 @@
 		ctx.fillStyle = "#ffd700";
 		ctx.font = "bold 14px sans-serif";
 		ctx.textAlign = "center";
-		ctx.fillText("🏁 FINISH", trackRight, trackTop - 15);
+		ctx.fillText("CHEGADA", trackRight - 12, trackTop - 15);
+
+		particles = particles.filter((particle) => particle.life > 0.02);
+		for (const particle of particles) {
+			particle.x += particle.vx;
+			particle.y += particle.vy;
+			particle.vy += 0.1;
+			particle.life -= 0.025;
+			ctx.globalAlpha = Math.max(0, particle.life);
+			ctx.fillStyle = particle.color;
+			ctx.fillRect(particle.x, particle.y, 3.5, 3.5);
+		}
+		ctx.globalAlpha = 1;
 	}
 
 	// ==========================================
@@ -194,13 +239,13 @@
 	function updateHUD(state) {
 		// Phase text
 		const phaseLabels = {
-			waiting: "🏇 Waiting for gifts to start...",
-			countdown: "⏳ Race starting in...",
-			racing: "🏁 RACE IN PROGRESS!",
-			finished: "🎉 RACE FINISHED!",
-			cooldown: "⏳ Next race soon...",
+			waiting: "🏇 Comente para começar",
+			countdown: "⏳ Preparar, apontar...",
+			racing: "🏁 Corrida valendo!",
+			finished: "🎉 Temos um campeão!",
+			cooldown: "⏳ Próxima corrida em breve",
 		};
-		phaseText.textContent = phaseLabels[state.phase] || state.phase;
+		phaseText.textContent = connectionHint || phaseLabels[state.phase] || state.phase;
 
 		// Phase timer
 		const remaining = engine.phaseRemaining();
@@ -227,8 +272,8 @@
 		});
 
 		// Event feed
-		if (state.recentEvents.length !== lastFeedCount) {
-			lastFeedCount = state.recentEvents.length;
+		if (state.recentEvents[0] !== lastFeedHead) {
+			lastFeedHead = state.recentEvents[0] || null;
 			renderFeed(state.recentEvents.slice(0, 8));
 		}
 
@@ -246,13 +291,13 @@
 			const el = document.createElement("div");
 			el.className = "feed-item " + evt.type;
 			if (evt.type === "gift") {
-				el.textContent = `${evt.giftEmoji} ${evt.nickname} → ${evt.laneFlag} (+${evt.distance})`;
+				el.textContent = `${evt.giftEmoji} ${evt.nickname} → ${evt.laneFlag} · ${evt.count > 1 ? `${evt.count}× · ` : ""}+${Math.round(evt.distance)}`;
 			} else if (evt.type === "vote") {
 				el.textContent = `💬 ${evt.nickname} → ${evt.laneFlag} (+${evt.distance})`;
 			} else if (evt.type === "chat") {
 				el.textContent = `💬 ${evt.nickname}: ${evt.text}`;
 			} else if (evt.type === "like") {
-				el.textContent = `❤️ ${evt.nickname} +${evt.count}`;
+				el.textContent = `❤️ ${evt.nickname} → ${evt.laneFlag} · ${evt.count} curtidas`;
 			}
 			eventFeedDiv.appendChild(el);
 		});
@@ -260,8 +305,8 @@
 
 	function showWinner(winner) {
 		winnerOverlay.classList.remove("hidden");
-		winnerEmoji.textContent = winner.flag;
-		winnerName.textContent = winner.name + " WINS!";
+		winnerEmoji.textContent = `🏇 ${winner.flag}`;
+		winnerName.textContent = winner.name + " venceu!";
 		winnerName.style.color = winner.color;
 
 		// Top 3 supporters
@@ -271,8 +316,8 @@
 
 		if (supporters.length > 0) {
 			winnerSupporters.textContent =
-				"Top supporters: " +
-				supporters.map((s) => `${s.nickname} (${s.totalContrib})`).join(", ");
+				"Torcida destaque: " +
+				supporters.map((s) => `${s.nickname} (${Math.round(s.totalContrib)})`).join(", ");
 		} else {
 			winnerSupporters.textContent = "";
 		}
