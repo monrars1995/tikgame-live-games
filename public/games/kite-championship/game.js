@@ -8,6 +8,7 @@ const tracker = new utils.GiftTracker();
 const demo = new URLSearchParams(location.search).get("demo") === "1";
 const $ = (id) => document.getElementById(id);
 const timer = $("timer");
+const roundClock = $("roundClock");
 const phaseLabel = $("phaseLabel");
 const roundNumber = $("roundNumber");
 const pilotCount = $("pilotCount");
@@ -256,9 +257,23 @@ function drawKite(kite, now, playerCount) {
   // At high participation, only active cuts expose their strings. All 1,000
   // kites remain in the simulation; labels and shadows would obscure the sky.
   if (!falling && (detail === 0 || (detail === 1 && (npc || highlighted)) || attacking)) {
-    ctx.strokeStyle = attacking ? "#fff7c5" : npc ? "#ffe8aacc" : "#f5ffffd6";
-    ctx.lineWidth = attacking ? 2.2 : detail === 0 ? 1.2 : 1;
+    const lineTop = kite.anchorY ?? 728;
+    const lineColor = attacking ? "#fff7c5" : npc ? "#ffe8aacc" : "#f5ffffd6";
+    if (attacking && detail <= 1) {
+      ctx.strokeStyle = kite.attack.kind === "like" ? "#ff8ab7aa" : "#ffd468b3";
+      ctx.lineWidth = detail === 0 ? 6 : 4;
+      ctx.beginPath(); ctx.moveTo(kite.anchorX, lineTop); ctx.lineTo(x, y); ctx.stroke();
+    }
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = attacking ? 2 : detail === 0 ? 1.2 : 1;
     ctx.beginPath(); ctx.moveTo(kite.anchorX, kite.anchorY ?? 728); ctx.lineTo(x, y); ctx.stroke();
+    if (attacking && detail === 0) {
+      const travel = ((now - kite.attack.started) / 390) % 1;
+      ctx.fillStyle = kite.attack.kind === "like" ? "#ff9dcb" : "#fff1a3";
+      ctx.beginPath();
+      ctx.arc(kite.anchorX + (x - kite.anchorX) * travel, lineTop + (y - lineTop) * travel, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   if (detail >= 2) {
@@ -277,7 +292,7 @@ function drawKite(kite, now, playerCount) {
     return;
   }
 
-  const rotation = Math.sin(now * .0018 + kite.slot) * .1 + (falling ? age * .002 : 0);
+  const rotation = (kite.tilt || 0) + Math.sin(now * .003 + kite.motionPhase) * .045 + (falling ? age * .002 : 0);
   const scale = beat * (npc ? .9 : 1) * (detail === 1 ? .62 : 1);
   ctx.save(); ctx.globalAlpha = Math.max(0, alpha);
   ctx.translate(x, y); ctx.rotate(rotation); ctx.scale(scale, scale);
@@ -285,12 +300,24 @@ function drawKite(kite, now, playerCount) {
   ctx.fillStyle = kite.color; ctx.strokeStyle = npc ? "#ffeba5" : "#fff"; ctx.lineWidth = npc ? 2.5 : 2;
   ctx.beginPath(); ctx.moveTo(0, -27); ctx.lineTo(22, 0); ctx.lineTo(0, 29); ctx.lineTo(-22, 0); ctx.closePath();
   ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+  if (detail === 0) {
+    ctx.fillStyle = "#172c5645";
+    ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(-20, 0); ctx.lineTo(0, 27); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffffff3b";
+    ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(20, 0); ctx.lineTo(0, 27); ctx.closePath(); ctx.fill();
+  }
   ctx.strokeStyle = "#ffffffab"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(0, 28); ctx.moveTo(-21, 0); ctx.lineTo(21, 0); ctx.stroke();
   ctx.fillStyle = "#fff8d6"; ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, Math.PI * 2); ctx.fill();
   if (detail === 0 || highlighted) {
+    const sway = Math.sin(now * .007 + kite.motionPhase) * 9 - (kite.vx || 0) * .018;
     ctx.strokeStyle = kite.color; ctx.lineWidth = 2.3;
-    ctx.beginPath(); ctx.moveTo(0, 27); ctx.quadraticCurveTo(-13, 42, 3, 56); ctx.quadraticCurveTo(17, 65, 3, 78); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 27); ctx.quadraticCurveTo(sway - 12, 42, sway, 56); ctx.quadraticCurveTo(sway + 14, 65, sway + 3, 78); ctx.stroke();
+  }
+  if (attacking && detail === 0) {
+    ctx.strokeStyle = kite.attack.kind === "like" ? "#ff91ba" : "#ffe296";
+    ctx.lineWidth = kite.attack.kind === "special" ? 4 : 2;
+    ctx.beginPath(); ctx.arc(0, 0, 35, -1.1, .3); ctx.stroke();
   }
   ctx.restore();
   if (falling) return;
@@ -391,6 +418,9 @@ function renderHud() {
   const remaining = engine.remainingMs;
   const seconds = engine.phase === "waiting" ? engine.rules.roundMs / 1000 : Math.ceil(remaining / 1000);
   timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  const period = engine.phase === "lobby" ? engine.rules.lobbyMs
+    : engine.phase === "results" ? engine.rules.resultsMs : engine.rules.roundMs;
+  roundClock?.style?.setProperty?.("--remaining", `${Math.max(0, Math.min(100, remaining / period * 100))}%`);
   phaseLabel.textContent = ({ waiting: "AGUARDANDO", lobby: "PREPARE A LINHA", active: "LINHAS CRUZANDO", results: "FIM DA RODADA" })[engine.phase];
   roundNumber.textContent = String(engine.round).padStart(2, "0");
   pilotCount.textContent = `${engine.active.length} NO CÉU`;

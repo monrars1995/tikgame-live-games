@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#64b7e5" />
     <title>Céu de Corte · TikGame</title>
+    <script>
+      if (location.protocol === "file:") {
+        location.replace(`http://127.0.0.1:3100/games/kite-championship/index.html${location.search || "?demo=1"}`);
+      }
+    </script>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -14,10 +19,10 @@
       <header class="hud-header">
         <div class="identity">
           <small>TIKGAME <span class="separator">✦</span> GOLD NEURON</small>
-          <h1>CÉU DE <span>CORTE</span><i aria-hidden="true">✦</i></h1>
+          <h1><span class="title-sky">CÉU DE</span> <span class="title-cut">CORTE</span><i aria-hidden="true">✦</i></h1>
           <p>O céu é de quem corta.</p>
         </div>
-        <div class="round-clock" role="timer" aria-live="off">
+        <div id="roundClock" class="round-clock" role="timer" aria-live="off">
           <span>RODADA <b id="roundNumber">01</b></span>
           <strong id="timer">01:00</strong>
           <small id="phaseLabel">AGUARDANDO</small>
@@ -27,7 +32,7 @@
       <div id="demoBadge" class="demo-badge" hidden>DEMONSTRAÇÃO</div>
 
       <section class="standings" aria-label="Pódio dos pilotos">
-        <div class="standings-head"><span>🏆 PILOTOS NO PÓDIO</span><span id="pilotCount">0 NO CÉU</span></div>
+        <div class="standings-head"><span>🏆 PILOTOS NO PÓDIO</span><span class="sky-count"><span id="pilotCount">0 NO CÉU</span><b id="queueCount"></b></span></div>
         <div id="ranking" class="ranking"></div>
       </section>
 
@@ -37,12 +42,7 @@
       </div>
       <div id="announcer" class="announcer" aria-live="polite"></div>
       <div id="winner" class="winner" hidden><small>CAMPEÃO DA RODADA</small><strong id="winnerName"></strong><span>🏆 +1 TROFÉU</span></div>
-
-      <footer class="game-cta">
-        <div class="cta-head"><span>✦ ENTRE NO CÉU</span><b id="queueCount"></b></div>
-        <div class="cta-main">COMENTE QUALQUER COISA <span>PARA SOLTAR SUA PIPA</span></div>
-        <div class="cta-actions"><span><b>♥</b> LIKE = PRESSÃO LEVE</span><span><b>🌹</b> ROSA = CORTE</span><span><b>✦</b> PRESENTE = TURBO</span></div>
-      </footer>
+      <p class="entry-prompt">Escreva qualquer coisa <strong>e sua pipa aparece</strong></p>
     </main>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/lib/tiktok-bridge.js"></script>

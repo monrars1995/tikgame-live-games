@@ -283,6 +283,11 @@ test("NPCs attack only live viewers during active play, cause no trophy, and ren
   advance(2001);
   assert.equal(engine.npcs[0].attack?.kind, "npc");
   assert.equal(engine.npcs[0].attack?.damage, 2);
+  const npc = engine.npcs[0];
+  const halfway = engine._pose(npc, npc.attack.started + 320);
+  const victim = engine.kites[0];
+  assert.ok(Math.hypot(halfway.x - victim.x, halfway.y - victim.y)
+    < Math.hypot(npc.attack.fromX - victim.x, npc.attack.fromY - victim.y));
   advance(650);
   assert.equal(engine.kites[0].alive, false);
   const botCut = engine.drainEvents().find((event) => event.type === "cut");
@@ -328,5 +333,79 @@ test("1000 viewers occupy distinct sky positions and the 1001st waits without bl
   for (let frame = 0; frame < 120; frame++) advance(16);
   assert.equal(engine.kites.length, 1000);
   assert.equal(engine.queue[0].id, "viewer-1000");
-  assert.ok(engine.kites.every((kite) => Number.isFinite(kite.x) && Number.isFinite(kite.y)));
+  assert.ok(engine.kites.every((kite) => Number.isFinite(kite.x) && Number.isFinite(kite.y)
+    && Number.isFinite(kite.vx) && Number.isFinite(kite.vy) && Math.abs(kite.tilt) <= .32));
+});
+
+test("wind makes human flight smooth while NPCs visibly patrol within the sky", () => {
+  const { engine, advance, now } = round();
+  engine.chat(user("a")); engine.chat(user("b"));
+  engine.tick(now()); // Establish the initial pose before measuring adjacent frames.
+  const human = engine.kites[0];
+  const npc = engine.npcs[0];
+  let previousHumanX = human.x;
+  let previousNpcX = npc.x;
+  let minHumanX = human.x; let maxHumanX = human.x;
+  let minNpcX = npc.x; let maxNpcX = npc.x;
+  let minNpcY = npc.y; let maxNpcY = npc.y;
+  for (let frame = 0; frame < 480; frame++) {
+    advance(16);
+    assert.ok(Math.abs(human.x - previousHumanX) < 2);
+    assert.ok(Math.abs(npc.x - previousNpcX) < 2);
+    assert.ok(human.x >= 23 && human.x <= 427 && human.y >= 190 && human.y <= 520);
+    assert.ok(npc.x >= 23 && npc.x <= 427 && npc.y >= 190 && npc.y <= 520);
+    assert.ok(Number.isFinite(human.vx) && Number.isFinite(human.vy)
+      && Number.isFinite(npc.vx) && Number.isFinite(npc.vy));
+    assert.ok(Math.abs(human.tilt) <= .32 && Math.abs(npc.tilt) <= .32);
+    minHumanX = Math.min(minHumanX, human.x); maxHumanX = Math.max(maxHumanX, human.x);
+    minNpcX = Math.min(minNpcX, npc.x); maxNpcX = Math.max(maxNpcX, npc.x);
+    minNpcY = Math.min(minNpcY, npc.y); maxNpcY = Math.max(maxNpcY, npc.y);
+    previousHumanX = human.x;
+    previousNpcX = npc.x;
+  }
+  assert.ok(maxHumanX - minHumanX > 15);
+  assert.ok(maxNpcX - minNpcX > 40);
+  assert.ok(maxNpcY - minNpcY > 20);
+  assert.ok(engine.npcs.every((kite) => kite.attack === null));
+});
+
+test("likes, roses, and premium gifts take distinct smooth paths but only crossed lines deal damage", () => {
+  const strike = (kind) => {
+    const game = round({ rules: { lobbyMs: 100, npcAttackMs: 100000 } });
+    game.engine.chat(user("a")); game.engine.chat(user("b"));
+    game.advance(101);
+    const attacker = game.engine.kites[0];
+    if (kind === "like") game.engine.like({ ...user("a"), likeCount: 1 });
+    else game.engine.gift({ ...user("a"), giftName: kind === "gift" ? "Rosa" : "Turbo",
+      giftValue: kind === "gift" ? 1 : 50 }, 1, kind === "gift");
+    const attack = attacker.attack;
+    assert.equal(game.engine._pose(attacker, attack.started).x, attack.fromX);
+    assert.equal(game.engine._pose(attacker, attack.started).y, attack.fromY);
+    const midway = game.engine._pose(attacker, attack.started + 250);
+    const blade = game.engine._pose(attacker, attack.impact);
+    const victim = game.engine._pose(game.engine.kites[1], attack.impact);
+    assert.ok(Math.abs(blade.x - attack.crossX) < 1e-9);
+    assert.ok(Math.abs(blade.y - attack.crossY) < 1e-9);
+    const atEnd = game.engine._pose(attacker, attack.end);
+    const idleAtEnd = game.engine._basePose(attacker, attack.end);
+    assert.ok(Math.hypot(atEnd.x - idleAtEnd.x, atEnd.y - idleAtEnd.y) < 1e-8);
+    assert.equal(segmentsIntersect(
+      { x: attacker.anchorX, y: attacker.anchorY }, blade,
+      { x: game.engine.kites[1].anchorX, y: game.engine.kites[1].anchorY }, victim,
+    ), true);
+    game.advance(attack.impact - game.now());
+    return { game, midway, duration: attack.impact - attack.started };
+  };
+  const like = strike("like");
+  const rose = strike("gift");
+  const premium = strike("special");
+  assert.deepEqual([like.duration, rose.duration, premium.duration], [520, 640, 550]);
+  assert.equal(new Set([like, rose, premium].map(({ midway }) =>
+    `${midway.x.toFixed(2)}:${midway.y.toFixed(2)}`)).size, 3);
+  assert.equal(like.game.engine.kites[1].hp, 99.45);
+  assert.equal(rose.game.engine.kites[1].hp, 75);
+  assert.equal(premium.game.engine.kites[1].hp, 0);
+  assert.equal(premium.game.engine.pilots.get("a").trophies, 1);
+  assert.equal(KITE_RULES.roseDamage, 25);
+  assert.equal(KITE_RULES.likeDamage, .55);
 });

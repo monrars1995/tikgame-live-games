@@ -1,6 +1,6 @@
 # TikGame Live Games · Fliperama para TikTok LIVE
 
-Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.3.0** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
+Fork de [vamnguyen/tiktok-live-games](https://github.com/vamnguyen/tiktok-live-games) adaptado pela Gold Neuron para lives em português. A versão **1.4.0** oferece cinco mini-games verticais que reagem a comentários, curtidas e presentes. O streamer abre a arena no navegador e a captura como fonte de navegador no OBS ou no TikTok LIVE Studio.
 
 | Mini-game | Entrada e ação principal | Duração |
 | --- | --- | --- |
@@ -27,6 +27,8 @@ Abra [http://localhost:3100](http://localhost:3100), informe o @ que está trans
 
 Cada jogo também tem uma **demonstração** no painel. O link `?demo=1` cria eventos fictícios, marca a tela como “DEMONSTRAÇÃO” e não requer live. No Céu de Corte, `?demo=1&participants=1000` permite conferir o limite visual de 1.000 pipas sem depender da live. Use a prévia para revisar layout e movimento; use o link com `?id=perfil` para a captura real. A página `/debug.html` monitora os eventos recebidos do TikTok. Antes de testar presentes pagos, confirme um comentário e curtidas reais no monitor e na arena.
 
+Abra a arena pela URL `http://127.0.0.1:3100/...` com o servidor em execução. Se o arquivo `public/games/kite-championship/index.html` for aberto diretamente por `file://`, ele redireciona para a prévia local no servidor; sem um @ na URL, abre em modo demonstração.
+
 | Arena | Prévia local |
 | --- | --- |
 | Corrida do Povo | `/games/horse-racing/index.html?demo=1` |
@@ -45,7 +47,7 @@ A consulta opcional de metadados estendidos de presentes fica desativada: ela po
 
 Na Corrida do Povo, nomes de cavalo e números 1–5 escolhem a raia; outros comentários distribuem o jogador automaticamente. A escolha fica fixa durante a corrida. Curtidas valem 0,2 por tap, até 100 por evento; o primeiro comentário inicia a contagem. A fórmula de impulso por presente é `min(140, round(8 × valor^0,55))` por unidade, com chegada em 300 pontos. Veja [config.js](public/games/horse-racing/config.js).
 
-No Cabo de Guerra, comentários de texto livre são equilibrados entre azul e vermelho. O time do jogador fica fixo na rodada. No Céu de Corte, há até **1.000 pipas de espectadores ativas**, fila de espera, vida por pipa e troféus, além de três pipas NPC que mantêm o céu movimentado e servem de adversários para quem entra sozinho. Os NPCs não ocupam vagas de espectadores nem aparecem no pódio, e seus nomes não são mostrados na arena. Em salas cheias, o desenho reduz o tamanho das pipas, destaca as linhas durante ataques e mantém os nomes dos espectadores nos avisos e no pódio; a vida e a colisão continuam sendo calculadas individualmente. Um ataque só causa dano se as linhas cruzarem geometricamente; Rosas são o ataque padrão de corte e curtidas são muito mais fracas. No X1, cada interação aumenta o ranking correspondente e afeta a barra de vida do lado oposto. As regras numéricas estão nos motores de cada jogo.
+No Cabo de Guerra, comentários de texto livre são equilibrados entre azul e vermelho. O time do jogador fica fixo na rodada. No Céu de Corte, há até **1.000 pipas de espectadores ativas**, fila de espera, vida por pipa e troféus, além de três pipas NPC que mantêm o céu movimentado e servem de adversários para quem entra sozinho. Os NPCs não ocupam vagas de espectadores nem aparecem no pódio, e seus nomes não são mostrados na arena. Vento em rajadas, inclinação e caudas animadas tornam o voo mais orgânico; curtidas, Rosas e presentes especiais fazem investidas com curvas e durações diferentes. Em salas cheias, o desenho reduz o tamanho das pipas, destaca as linhas durante ataques e mantém os nomes dos espectadores nos avisos e no pódio; a vida e a colisão continuam sendo calculadas individualmente. Um ataque só causa dano se as linhas cruzarem geometricamente; Rosas são o ataque padrão de corte e curtidas são muito mais fracas. No X1, cada interação aumenta o ranking correspondente e afeta a barra de vida do lado oposto. As regras numéricas estão nos motores de cada jogo.
 
 ## Arquitetura e validação
 

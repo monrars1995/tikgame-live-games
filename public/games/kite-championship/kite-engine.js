@@ -25,7 +25,13 @@ export const KITE_PALETTE = [
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 const mix = (a, b, t) => a + (b - a) * t;
-const ease = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const smooth = (t) => { const value = clamp(t, 0, 1); return value * value * (3 - 2 * value); };
+const ATTACK_PROFILES = Object.freeze({
+  like: Object.freeze({ approach: 520, retreat: 380, arcX: 4, arcY: 5 }),
+  gift: Object.freeze({ approach: 640, retreat: 480, arcX: 14, arcY: 20 }),
+  special: Object.freeze({ approach: 550, retreat: 620, arcX: 24, arcY: 31 }),
+  npc: Object.freeze({ approach: 640, retreat: 570, arcX: 11, arcY: 14 }),
+});
 const strongerKind = (previous, incoming) =>
   ["like", "gift", "special"].indexOf(incoming) > ["like", "gift", "special"].indexOf(previous)
     ? incoming : previous;
@@ -83,6 +89,9 @@ export class KiteEngine {
     this.events = [];
     this.winner = null;
     this.lastTick = this.clock();
+    this.windTime = NaN;
+    this.windX = 0;
+    this.windY = 0;
   }
 
   get active() { return this.kites.filter((kite) => kite.alive); }
@@ -143,7 +152,8 @@ export class KiteEngine {
       id: user.id, name: user.name, avatar: user.avatar,
       color: KITE_PALETTE[seed % KITE_PALETTE.length],
       hp: this.rules.health, alive: true, slot, anchorX, anchorY, baseX, baseY, seed,
-      x: baseX, y: baseY,
+      motionPhase: (seed % 6283) / 1000,
+      x: baseX, y: baseY, vx: 0, vy: 0, tilt: 0,
       pressure: clamp(this.pilots.get(user.id)?.pending || 0, 0, 5000),
       reserveKind: this.pilots.get(user.id)?.pending ? this.pilots.get(user.id)?.pendingKind : "like",
       reserveUnits: this.pilots.get(user.id)?.pendingUnits || 0,
@@ -185,7 +195,9 @@ export class KiteEngine {
         hp: this.rules.health, alive: true, slot, anchorX, anchorY: 728,
         baseX: anchorX, baseY: 300 + (slot % 4) * 55,
         seed: hash(`${id}:${this.round}`),
+        motionPhase: index * 2.1 + this.round * .37,
         x: anchorX, y: 300 + (slot % 4) * 55,
+        vx: 0, vy: 0, tilt: 0,
         pressure: 0, reserveKind: "like", reserveUnits: 0,
         attack: null, lastHitAt: 0, fallAt: 0, nextAttackAt: 0,
       };
@@ -267,15 +279,17 @@ export class KiteEngine {
       return;
     }
     const now = this.clock();
-    const impact = now + 640;
+    const profile = ATTACK_PROFILES[kind] || ATTACK_PROFILES.gift;
+    const impact = now + profile.approach;
     const direction = kite.anchorX < target.anchorX ? 1 : -1;
     const reach = 58;
     kite.attack = {
       targetId: target.id, kind, units,
-      damage: total, started: now, impact, end: now + 1120,
+      damage: total, started: now, impact, end: impact + profile.retreat,
       fromX: kite.x, fromY: kite.y,
       crossX: clamp(target.x + direction * reach, 22, this.rules.width - 22),
       crossY: target.y,
+      direction, arcX: profile.arcX, arcY: profile.arcY,
       resolved: false,
     };
     this._emit("strike", { id: kite.id, name: kite.name, target: target.name, kind, units });
@@ -338,13 +352,30 @@ export class KiteEngine {
     return true;
   }
 
-  _basePose(kite, now, out = {}) {
+  _windAt(now) {
+    if (this.windTime === now) return;
     const t = now / 1000;
-    const crowded = kite.slot >= 12 && !kite.npc;
-    out.x = clamp(kite.baseX + Math.sin(t * 0.8 + kite.seed) * (crowded ? 5 : 20)
-      + Math.sin(t * 1.7 + kite.slot) * (crowded ? 2 : 6), 23, this.rules.width - 23);
-    out.y = kite.baseY + Math.cos(t * 0.7 + kite.slot * 1.8) * (crowded ? 6 : 23)
-      + Math.sin(t * 1.8 + kite.seed) * (crowded ? 3 : 8);
+    this.windTime = now;
+    this.windX = Math.sin(t * .17) * 9 + Math.sin(t * .46 + 1.1) * 5;
+    this.windY = Math.sin(t * .25 + .7) * 3;
+  }
+
+  _basePose(kite, now, out = {}) {
+    this._windAt(now);
+    const t = now / 1000;
+    const phase = kite.motionPhase;
+    const npc = kite.npc === true;
+    const crowded = kite.slot >= 12 && !npc;
+    const spanX = npc ? 36 : crowded ? 4 : 15;
+    const spanY = npc ? 27 : crowded ? 6 : 19;
+    const gust = Math.sin(t * .31 + phase * 1.3) * Math.sin(t * .9 + phase);
+    out.x = clamp(kite.baseX + this.windX * (npc ? 1.2 : crowded ? .35 : .8)
+      + Math.sin(t * (npc ? .54 : .62) + phase) * spanX
+      + Math.sin(t * 1.27 + phase * 1.8) * (npc ? 7 : crowded ? 2 : 5)
+      + gust * (npc ? 11 : crowded ? 2 : 7), 23, this.rules.width - 23);
+    out.y = clamp(kite.baseY + this.windY * (npc ? 1.2 : 1)
+      + Math.cos(t * (npc ? .71 : .53) + phase) * spanY
+      + Math.sin(t * 1.14 + phase * 1.4) * (npc ? 7 : crowded ? 2 : 5), 190, 520);
     return out;
   }
 
@@ -353,14 +384,18 @@ export class KiteEngine {
     const attack = kite.attack;
     if (!attack) return base;
     if (now <= attack.impact) {
-      const t = ease((now - attack.started) / (attack.impact - attack.started));
-      out.x = mix(attack.fromX, attack.crossX, t);
-      out.y = mix(attack.fromY, attack.crossY, t);
+      const t = clamp((now - attack.started) / (attack.impact - attack.started), 0, 1);
+      const bend = Math.sin(Math.PI * t);
+      const progress = smooth(t);
+      out.x = mix(attack.fromX, attack.crossX, progress) + bend * attack.arcX * attack.direction;
+      out.y = mix(attack.fromY, attack.crossY, progress) - bend * attack.arcY;
       return out;
     }
-    const t = ease((now - attack.impact) / (attack.end - attack.impact));
-    out.x = mix(attack.crossX, base.x, t);
-    out.y = mix(attack.crossY, base.y, t);
+    const t = clamp((now - attack.impact) / (attack.end - attack.impact), 0, 1);
+    const bend = Math.sin(Math.PI * t);
+    const progress = smooth(t);
+    out.x = mix(attack.crossX, base.x, progress) - bend * attack.arcX * attack.direction * .35;
+    out.y = mix(attack.crossY, base.y, progress) - bend * attack.arcY * .3;
     return out;
   }
 
@@ -480,6 +515,9 @@ export class KiteEngine {
   }
 
   tick(now = this.clock()) {
+    const elapsedMs = Math.max(1, now - this.lastTick);
+    const seconds = elapsedMs / 1000;
+    const velocityBlend = 1 - Math.exp(-elapsedMs / 95);
     this.lastTick = now;
     if (this.phase === "lobby" && now >= this.deadline) {
       this.phase = "active";
@@ -491,11 +529,21 @@ export class KiteEngine {
     }
     for (const kite of this.kites) {
       if (!kite.alive) continue;
+      const oldX = kite.x;
+      const oldY = kite.y;
       this._pose(kite, now, kite);
+      kite.vx = mix(kite.vx, clamp((kite.x - oldX) / seconds, -650, 650), velocityBlend);
+      kite.vy = mix(kite.vy, clamp((kite.y - oldY) / seconds, -650, 650), velocityBlend);
+      kite.tilt = clamp(kite.vx / 370, -.32, .32);
     }
     for (const kite of this.npcs) {
       if (!kite.alive) continue;
+      const oldX = kite.x;
+      const oldY = kite.y;
       this._pose(kite, now, kite);
+      kite.vx = mix(kite.vx, clamp((kite.x - oldX) / seconds, -650, 650), velocityBlend);
+      kite.vy = mix(kite.vy, clamp((kite.y - oldY) / seconds, -650, 650), velocityBlend);
+      kite.tilt = clamp(kite.vx / 370, -.32, .32);
     }
     if (this.phase === "active" && now < this.deadline) this._releaseReserves();
     if (this.phase === "active" && now < this.deadline && this.aliveHumans > 0) {
